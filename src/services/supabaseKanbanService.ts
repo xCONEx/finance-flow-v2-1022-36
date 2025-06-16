@@ -46,20 +46,34 @@ class SupabaseKanbanService {
         throw new Error('ID do usuário não confere');
       }
 
-      // Salvar os projetos no campo kanban_data do perfil do usuário
+      // Buscar dados atuais do perfil
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('subscription_data')
+        .eq('id', userId)
+        .single();
+
+      // Preparar dados do kanban
       const kanbanData = {
         projects: projects,
         lastUpdated: new Date().toISOString()
       };
 
+      // Preparar subscription_data com type safety
+      const currentSubscriptionData = currentProfile?.subscription_data;
+      const baseData = (currentSubscriptionData && typeof currentSubscriptionData === 'object' && !Array.isArray(currentSubscriptionData)) 
+        ? currentSubscriptionData as Record<string, any>
+        : {};
+
+      const updatedSubscriptionData = {
+        ...baseData,
+        kanban_projects: kanbanData
+      };
+
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          // Usando um campo genérico para dados extras
-          subscription_data: {
-            ...((await supabase.from('profiles').select('subscription_data').eq('id', userId).single()).data?.subscription_data || {}),
-            kanban_projects: kanbanData
-          },
+          subscription_data: updatedSubscriptionData,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -118,7 +132,14 @@ class SupabaseKanbanService {
         return this.loadFromLocalStorage(userId);
       }
 
-      const kanbanData = data?.subscription_data?.kanban_projects;
+      // Type safety para acessar kanban_projects
+      const subscriptionData = data?.subscription_data;
+      let kanbanData = null;
+
+      if (subscriptionData && typeof subscriptionData === 'object' && !Array.isArray(subscriptionData)) {
+        const typedData = subscriptionData as Record<string, any>;
+        kanbanData = typedData.kanban_projects;
+      }
       
       if (!kanbanData || !kanbanData.projects || kanbanData.projects.length === 0) {
         console.log('📦 Nenhum projeto no Supabase, tentando localStorage...');
