@@ -26,49 +26,46 @@ export const subscriptionService = {
         };
       }
 
-      // Se for o próprio usuário ou super admin, tentar buscar dados
       const isOwnUser = currentUser.user.id === userId;
       const isSuperAdmin = currentUser.user.email === 'yuriadrskt@gmail.com' || 
                           currentUser.user.email === 'adm.financeflow@gmail.com';
 
-      if (!isOwnUser && !isSuperAdmin) {
-        console.log('⚠️ Usuário não autorizado, retornando plano free');
-        return {
-          plan: 'free',
-          status: 'inactive'
-        };
-      }
+      console.log('🔍 Verificações:', { isOwnUser, isSuperAdmin, userEmail: currentUser.user.email });
 
-      // Usar RPC para buscar dados se for super admin
+      // Se for super admin, usar RPC segura
       if (isSuperAdmin) {
         try {
-          const { data: profiles, error: rpcError } = await (supabase as any).rpc('get_all_profiles_for_admin');
+          console.log('🔑 Tentando buscar como super admin via RPC...');
+          const { data: profileData, error: rpcError } = await (supabase as any).rpc('get_profile_for_admin', {
+            target_user_id: userId
+          });
           
-          if (!rpcError && profiles) {
-            const userProfile = profiles.find((p: any) => p.id === userId);
-            if (userProfile) {
-              console.log('✅ Dados encontrados via RPC:', userProfile.subscription);
-              const subscriptionData = userProfile.subscription_data as any;
+          if (!rpcError && profileData && profileData.length > 0) {
+            const userProfile = profileData[0];
+            console.log('✅ Dados encontrados via RPC admin:', userProfile);
+            const subscriptionData = userProfile.subscription_data as any;
 
-              return {
-                plan: userProfile.subscription || 'free',
-                status: subscriptionData?.status || 'inactive',
-                current_period_start: subscriptionData?.current_period_start,
-                current_period_end: subscriptionData?.current_period_end,
-                payment_provider: subscriptionData?.payment_provider,
-                amount: subscriptionData?.amount,
-                currency: subscriptionData?.currency || 'BRL'
-              };
-            }
+            return {
+              plan: userProfile.subscription || 'free',
+              status: subscriptionData?.status || 'inactive',
+              current_period_start: subscriptionData?.current_period_start,
+              current_period_end: subscriptionData?.current_period_end,
+              payment_provider: subscriptionData?.payment_provider,
+              amount: subscriptionData?.amount,
+              currency: subscriptionData?.currency || 'BRL'
+            };
+          } else {
+            console.log('⚠️ RPC admin não retornou dados, tentando busca direta...');
           }
         } catch (rpcError) {
-          console.error('❌ Erro na chamada RPC:', rpcError);
+          console.error('❌ Erro na chamada RPC admin:', rpcError);
         }
       }
 
-      // Fallback: tentar busca direta (apenas para o próprio usuário)
-      if (isOwnUser) {
+      // Fallback: tentar busca direta (para próprio usuário ou se RPC falhou)
+      if (isOwnUser || isSuperAdmin) {
         try {
+          console.log('🔍 Tentando busca direta...');
           const { data, error } = await supabase
             .from('profiles')
             .select('subscription, subscription_data')
@@ -76,7 +73,7 @@ export const subscriptionService = {
             .single();
 
           if (!error && data) {
-            console.log('✅ Dados encontrados via consulta direta:', data.subscription);
+            console.log('✅ Dados encontrados via consulta direta:', data);
             const subscriptionData = data.subscription_data as any;
 
             return {
@@ -88,10 +85,21 @@ export const subscriptionService = {
               amount: subscriptionData?.amount,
               currency: subscriptionData?.currency || 'BRL'
             };
+          } else {
+            console.error('❌ Erro na consulta direta:', error);
           }
         } catch (directError) {
           console.error('❌ Erro na consulta direta:', directError);
         }
+      }
+
+      // Se não é próprio usuário nem admin, retornar free
+      if (!isOwnUser && !isSuperAdmin) {
+        console.log('⚠️ Usuário não autorizado, retornando plano free');
+        return {
+          plan: 'free',
+          status: 'inactive'
+        };
       }
 
       // Retorno padrão se tudo falhar
@@ -130,9 +138,10 @@ export const subscriptionService = {
         return false;
       }
 
-      // Se for super admin, usar RPC
+      // Se for super admin, usar RPC segura
       if (isSuperAdmin) {
         try {
+          console.log('🔑 Atualizando como super admin via RPC...');
           const updateData = {
             subscription: subscriptionData.plan,
             subscription_data: subscriptionData
@@ -144,17 +153,20 @@ export const subscriptionService = {
           });
 
           if (!rpcError) {
-            console.log('✅ Assinatura atualizada via RPC');
+            console.log('✅ Assinatura atualizada via RPC admin');
             return true;
+          } else {
+            console.error('❌ Erro na atualização via RPC admin:', rpcError);
           }
         } catch (rpcError) {
-          console.error('❌ Erro na atualização via RPC:', rpcError);
+          console.error('❌ Erro na atualização via RPC admin:', rpcError);
         }
       }
 
-      // Fallback: atualização direta (apenas para o próprio usuário)
-      if (isOwnUser) {
+      // Fallback: atualização direta (para próprio usuário ou se RPC falhou)
+      if (isOwnUser || isSuperAdmin) {
         try {
+          console.log('🔄 Tentando atualização direta...');
           const { error } = await supabase
             .from('profiles')
             .update({
@@ -167,6 +179,8 @@ export const subscriptionService = {
           if (!error) {
             console.log('✅ Assinatura atualizada via consulta direta');
             return true;
+          } else {
+            console.error('❌ Erro na atualização direta:', error);
           }
         } catch (directError) {
           console.error('❌ Erro na atualização direta:', directError);
