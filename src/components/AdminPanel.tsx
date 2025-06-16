@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -389,7 +390,7 @@ const AdminPanel = () => {
             <Ban className="h-6 w-6 md:h-8 md:w-8 mx-auto text-red-600 mb-2" />
             <p className="text-lg md:text-2xl font-bold">{bannedUsers}</p>
             <p className="text-xs md:text-sm text-gray-600">Banidos</p>
-          </Card>
+          </CardContent>
         </Card>
       </div>
 
@@ -424,7 +425,7 @@ const AdminPanel = () => {
             <TrendingUp className="h-6 w-6 md:h-8 md:w-8 mx-auto text-yellow-600 mb-2" />
             <p className="text-lg md:text-2xl font-bold text-yellow-700">{enterpriseUsers}</p>
             <p className="text-xs md:text-sm text-gray-600">Enterprise</p>
-          </Card>
+          </CardContent>
         </Card>
       </div>
 
