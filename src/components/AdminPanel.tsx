@@ -39,13 +39,13 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 interface UserProfile {
   id: string;
   email: string;
-  full_name: string | null;
-  subscription: string | null;
-  user_type: string | null;
-  banned: boolean | null;
+  name?: string | null;
+  subscription?: string | null;
+  user_type?: string | null;
+  banned?: boolean | null;
   created_at: string;
-  updated_at: string;
-  subscription_data: any;
+  updated_at?: string;
+  subscription_data?: any;
 }
 
 const AdminPanel = () => {
@@ -74,13 +74,13 @@ const AdminPanel = () => {
       setLoading(true);
       console.log('🔍 Carregando dados do admin...');
       
-      // Buscar todos os usuários com dados completos
+      // Buscar todos os usuários com dados básicos disponíveis
       const { data: profilesData, error } = await supabase
         .from('profiles')
         .select(`
           id,
           email,
-          full_name,
+          name,
           subscription,
           user_type,
           banned,
@@ -128,6 +128,8 @@ const AdminPanel = () => {
         description: 'Erro ao carregar dados dos usuários',
         variant: 'destructive'
       });
+      // Set empty array on error to prevent further issues
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -245,9 +247,9 @@ const AdminPanel = () => {
 
   const filteredUsers = users.filter(user => {
     const email = user?.email || '';
-    const fullName = user?.full_name || '';
+    const name = user?.name || '';
     const matchesSearch = email.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         fullName.toLowerCase().includes(searchQuery.toLowerCase());
+                         name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTypeFilter = userTypeFilter === 'all' ? true : user.user_type === userTypeFilter;
     const matchesSubscriptionFilter = subscriptionFilter === 'all' ? true : 
                                     (user.subscription || 'free') === subscriptionFilter;
@@ -424,8 +426,8 @@ const AdminPanel = () => {
                         <TableCell>
                           <div>
                             <p className="font-medium text-sm">{user.email}</p>
-                            {user.full_name && (
-                              <p className="text-xs text-gray-600">{user.full_name}</p>
+                            {user.name && (
+                              <p className="text-xs text-gray-600">{user.name}</p>
                             )}
                             <p className="text-xs text-gray-400">ID: {user.id.slice(0, 8)}...</p>
                           </div>
@@ -530,8 +532,8 @@ const AdminPanel = () => {
                   <div key={admin.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
                     <div>
                       <span className="text-sm font-medium">{admin.email}</span>
-                      {admin.full_name && (
-                        <p className="text-xs text-gray-600">{admin.full_name}</p>
+                      {admin.name && (
+                        <p className="text-xs text-gray-600">{admin.name}</p>
                       )}
                     </div>
                     <Badge>Admin</Badge>
