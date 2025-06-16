@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,8 @@ const plans = [
     icon: <Check className="h-5 w-5" />,
     features: [
       'Até 5 jobs por mês',
+      'Até 3 projetos',
+      '100MB de armazenamento',
       'Dashboard básico',
       'Relatórios simples',
       'Suporte por email'
@@ -32,6 +35,8 @@ const plans = [
     icon: <Zap className="h-5 w-5" />,
     features: [
       'Jobs ilimitados',
+      'Projetos ilimitados',
+      '5GB de armazenamento',
       'Dashboard completo',
       'Relatórios avançados',
       'Calculadora de preços',
@@ -50,8 +55,10 @@ const plans = [
     features: [
       'Inclui tudo do Básico +',
       'Até 10 membros da equipe',
+      '50GB de armazenamento',
       'Colaboração em tempo real',
       'Relatórios personalizados',
+      'Customizações avançadas',
       'Backup automático'
     ],
     caktoUrl: 'https://pay.cakto.com.br/kesq5cb',
@@ -65,12 +72,14 @@ const plans = [
     description: 'Para grandes estúdios',
     icon: <Building className="h-5 w-5" />,
     features: [
-      'Tudo do Premium',
+      'Tudo do Premium +',
       'Equipe ilimitada',
+      'Armazenamento ilimitado',
+      'API de integração',
       'Suporte 24/7',
       'Onboarding dedicado',
       'SLA garantido',
-      'Customizações'
+      'Customizações completas'
     ],
     caktoUrl: 'https://pay.cakto.com.br/34p727v',
     popular: false
@@ -80,18 +89,20 @@ const plans = [
     name: 'Enterprise Anual',
     price: 'R$ 1.990',
     period: '/ano',
-    description: 'Economia de 20%',
+    description: 'Economia de 50%',
     icon: <Building className="h-5 w-5" />,
     features: [
-      'Tudo do Enterprise',
-      '2 meses grátis',
-      'Desconto de 20%',
-      'Consultoria inclusa',
-      'Treinamento da equipe'
+      'Tudo do Enterprise +',
+      '12 meses pelo preço de 10',
+      'Economia de R$ 398/ano',
+      'Consultoria estratégica',
+      'Treinamento da equipe',
+      'Suporte dedicado',
+      'Implementação personalizada'
     ],
     caktoUrl: 'https://pay.cakto.com.br/uoxtt9o',
     popular: false,
-    badge: 'ECONOMIA'
+    badge: 'MELHOR OFERTA'
   }
 ];
 
@@ -213,7 +224,7 @@ export const SubscriptionPlans: React.FC = () => {
       </div>
 
       <div className="mt-8 text-center text-sm text-gray-500">
-        <p>Todos os planos incluem 7 dias de teste grátis</p>
+        <p>Processamento seguro via Cakto</p>
         <p>Cancele a qualquer momento, sem compromisso</p>
       </div>
     </div>
