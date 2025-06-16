@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -84,8 +83,8 @@ const AdminPanel = () => {
       console.log('👤 Usuário atual:', user?.email);
       
       // Usar a função RPC para buscar todos os profiles
-      const { data: profilesData, error } = await supabase
-        .rpc('get_all_profiles_for_admin' as any);
+      const { data: profilesData, error } = await (supabase as any)
+        .rpc('get_all_profiles_for_admin');
 
       if (error) {
         console.error('❌ Erro ao buscar profiles via RPC:', error);
@@ -168,8 +167,8 @@ const AdminPanel = () => {
       
       const updateData = { [field]: value };
       
-      const { error } = await supabase
-        .rpc('admin_update_profile' as any, {
+      const { error } = await (supabase as any)
+        .rpc('admin_update_profile', {
           target_user_id: userId,
           update_data: updateData
         });
@@ -213,8 +212,8 @@ const AdminPanel = () => {
         subscription_data: subscriptionData
       };
 
-      const { error } = await supabase
-        .rpc('admin_update_profile' as any, {
+      const { error } = await (supabase as any)
+        .rpc('admin_update_profile', {
           target_user_id: userId,
           update_data: updateData
         });
@@ -246,8 +245,8 @@ const AdminPanel = () => {
     try {
       const updateData = { banned };
 
-      const { error } = await supabase
-        .rpc('admin_update_profile' as any, {
+      const { error } = await (supabase as any)
+        .rpc('admin_update_profile', {
           target_user_id: userId,
           update_data: updateData
         });
@@ -416,7 +415,7 @@ const AdminPanel = () => {
             <TrendingUp className="h-6 w-6 md:h-8 md:w-8 mx-auto text-yellow-600 mb-2" />
             <p className="text-lg md:text-2xl font-bold text-yellow-700">{enterpriseUsers}</p>
             <p className="text-xs md:text-sm text-gray-600">Enterprise</p>
-          </CardContent>
+          </Card>
         </Card>
 
         <Card>
