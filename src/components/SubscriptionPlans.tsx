@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,15 +43,14 @@ const plans = [
   {
     id: 'premium',
     name: 'Premium',
-    price: 'R$ 59',
+    price: 'R$ 59,90',
     period: '/mês',
     description: 'Para pequenos estúdios',
     icon: <Crown className="h-5 w-5" />,
     features: [
-      'Tudo do Básico',
+      'Inclui tudo do Básico +',
       'Até 10 membros da equipe',
       'Colaboração em tempo real',
-      'API de integração',
       'Relatórios personalizados',
       'Backup automático'
     ],
