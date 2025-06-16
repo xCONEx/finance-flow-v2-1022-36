@@ -15,6 +15,15 @@ export interface KanbanProject {
   user_id: string;
 }
 
+// Função para gerar UUID válido
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 class SupabaseKanbanService {
   async saveBoard(userId: string, projects: KanbanProject[]): Promise<void> {
     try {
@@ -35,19 +44,27 @@ class SupabaseKanbanService {
 
       // Inserir todos os projetos
       if (projects.length > 0) {
-        const projectsToInsert = projects.map(project => ({
-          id: project.id,
-          user_id: userId,
-          title: project.title,
-          client: project.client,
-          due_date: project.dueDate || null,
-          priority: project.priority,
-          status: project.status,
-          description: project.description || null,
-          links: project.links,
-          created_at: project.createdAt,
-          updated_at: new Date().toISOString()
-        }));
+        const projectsToInsert = projects.map(project => {
+          // Garantir que o ID seja um UUID válido
+          let validId = project.id;
+          if (!validId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+            validId = generateUUID();
+          }
+
+          return {
+            id: validId,
+            user_id: userId,
+            title: project.title,
+            client: project.client,
+            due_date: project.dueDate || null,
+            priority: project.priority,
+            status: project.status,
+            description: project.description || null,
+            links: project.links || [],
+            created_at: project.createdAt,
+            updated_at: new Date().toISOString()
+          };
+        });
 
         const { error: insertError } = await supabase
           .from('user_kanban_boards')
@@ -107,7 +124,7 @@ class SupabaseKanbanService {
         priority: row.priority as "alta" | "media" | "baixa",
         status: row.status as "filmado" | "edicao" | "revisao" | "entregue",
         description: row.description || '',
-        links: row.links || [],
+        links: Array.isArray(row.links) ? row.links : [],
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         user_id: row.user_id
@@ -180,9 +197,15 @@ class SupabaseKanbanService {
 
   async addProject(userId: string, project: KanbanProject): Promise<void> {
     try {
+      // Garantir que o projeto tenha um UUID válido
+      let validId = project.id;
+      if (!validId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        validId = generateUUID();
+      }
+
       // Inserir no Supabase
       const projectData = {
-        id: project.id,
+        id: validId,
         user_id: userId,
         title: project.title,
         client: project.client,
@@ -190,7 +213,7 @@ class SupabaseKanbanService {
         priority: project.priority,
         status: project.status,
         description: project.description || null,
-        links: project.links,
+        links: project.links || [],
         created_at: project.createdAt,
         updated_at: project.updatedAt
       };
@@ -205,7 +228,8 @@ class SupabaseKanbanService {
 
       // Atualizar localStorage como backup
       const projects = await this.loadBoard(userId);
-      const updatedProjects = [...projects, project];
+      const updatedProject = { ...project, id: validId };
+      const updatedProjects = [...projects, updatedProject];
       localStorage.setItem('entregaFlowProjects', JSON.stringify(updatedProjects));
       
       console.log('✅ Projeto adicionado');
