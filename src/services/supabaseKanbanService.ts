@@ -73,7 +73,7 @@ class SupabaseKanbanService {
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          subscription_data: updatedSubscriptionData,
+          subscription_data: updatedSubscriptionData as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
