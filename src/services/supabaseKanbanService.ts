@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface KanbanProject {
@@ -45,59 +46,30 @@ class SupabaseKanbanService {
         throw new Error('ID do usuário não confere');
       }
 
-      // Primeiro, deletar todos os projetos existentes do usuário
-      const { error: deleteError } = await supabase
-        .from('user_kanban_boards')
-        .delete()
-        .eq('user_id', userId);
+      // Salvar os projetos no campo kanban_data do perfil do usuário
+      const kanbanData = {
+        projects: projects,
+        lastUpdated: new Date().toISOString()
+      };
 
-      if (deleteError) {
-        console.error('❌ Erro ao deletar projetos antigos:', deleteError);
-        throw deleteError;
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          // Usando um campo genérico para dados extras
+          subscription_data: {
+            ...((await supabase.from('profiles').select('subscription_data').eq('id', userId).single()).data?.subscription_data || {}),
+            kanban_projects: kanbanData
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('❌ Erro ao salvar no perfil:', updateError);
+        throw updateError;
       }
 
-      console.log('✅ Projetos antigos deletados');
-
-      // Inserir todos os projetos
-      if (projects.length > 0) {
-        const projectsToInsert = projects.map(project => {
-          // Garantir que o ID seja um UUID válido
-          let validId = project.id;
-          if (!validId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-            validId = generateUUID();
-          }
-
-          return {
-            id: validId,
-            user_id: userId,
-            title: project.title,
-            client: project.client,
-            due_date: project.dueDate || null,
-            priority: project.priority,
-            status: project.status,
-            description: project.description || null,
-            links: project.links || [],
-            created_at: project.createdAt,
-            updated_at: new Date().toISOString()
-          };
-        });
-
-        console.log('📝 Dados para inserir:', projectsToInsert);
-
-        const { error: insertError, data: insertData } = await supabase
-          .from('user_kanban_boards')
-          .insert(projectsToInsert)
-          .select();
-
-        if (insertError) {
-          console.error('❌ Erro ao inserir projetos:', insertError);
-          throw insertError;
-        }
-
-        console.log('✅ Projetos inseridos:', insertData);
-      }
-
-      console.log('✅ Projetos salvos com sucesso no Supabase!');
+      console.log('✅ Projetos salvos com sucesso no perfil do usuário!');
       
       // Backup no localStorage
       localStorage.setItem('entregaFlowProjects', JSON.stringify(projects));
@@ -135,10 +107,10 @@ class SupabaseKanbanService {
       }
 
       const { data, error } = await supabase
-        .from('user_kanban_boards')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .from('profiles')
+        .select('subscription_data')
+        .eq('id', userId)
+        .single();
 
       if (error) {
         console.error('❌ Erro ao carregar do Supabase:', error);
@@ -146,24 +118,25 @@ class SupabaseKanbanService {
         return this.loadFromLocalStorage(userId);
       }
 
-      if (!data || data.length === 0) {
+      const kanbanData = data?.subscription_data?.kanban_projects;
+      
+      if (!kanbanData || !kanbanData.projects || kanbanData.projects.length === 0) {
         console.log('📦 Nenhum projeto no Supabase, tentando localStorage...');
         return this.loadFromLocalStorage(userId);
       }
 
-      // Converter dados do Supabase para o formato KanbanProject
-      const projects: KanbanProject[] = data.map((row: any) => ({
-        id: row.id,
-        title: row.title,
-        client: row.client,
-        dueDate: row.due_date || '',
-        priority: row.priority as "alta" | "media" | "baixa",
-        status: row.status as "filmado" | "edicao" | "revisao" | "entregue",
-        description: row.description || '',
-        links: Array.isArray(row.links) ? row.links : [],
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        user_id: row.user_id
+      const projects: KanbanProject[] = kanbanData.projects.map((project: any) => ({
+        id: project.id,
+        title: project.title,
+        client: project.client,
+        dueDate: project.dueDate || '',
+        priority: project.priority as "alta" | "media" | "baixa",
+        status: project.status as "filmado" | "edicao" | "revisao" | "entregue",
+        description: project.description || '',
+        links: Array.isArray(project.links) ? project.links : [],
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        user_id: project.user_id
       }));
 
       console.log('🎉 Projetos carregados do Supabase:', projects.length);
@@ -196,39 +169,16 @@ class SupabaseKanbanService {
 
   async updateProject(userId: string, projectId: string, updates: Partial<KanbanProject>): Promise<void> {
     try {
-      // Verificar autenticação
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user || user.id !== userId) {
-        throw new Error('Usuário não autenticado ou ID não confere');
-      }
-
-      // Primeiro atualizar no Supabase
-      const updateData: any = {};
-      if (updates.title) updateData.title = updates.title;
-      if (updates.client) updateData.client = updates.client;
-      if (updates.dueDate !== undefined) updateData.due_date = updates.dueDate || null;
-      if (updates.priority) updateData.priority = updates.priority;
-      if (updates.status) updateData.status = updates.status;
-      if (updates.description !== undefined) updateData.description = updates.description || null;
-      if (updates.links) updateData.links = updates.links;
-      updateData.updated_at = new Date().toISOString();
-
-      const { error } = await supabase
-        .from('user_kanban_boards')
-        .update(updateData)
-        .eq('id', projectId)
-        .eq('user_id', userId);
-
-      if (error) {
-        console.error('❌ Erro ao atualizar no Supabase:', error);
-      }
-
-      // Atualizar localStorage como backup
+      // Carregar projetos atuais
       const projects = await this.loadBoard(userId);
+      
+      // Atualizar o projeto específico
       const updatedProjects = projects.map(p => 
         p.id === projectId ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
       );
-      localStorage.setItem('entregaFlowProjects', JSON.stringify(updatedProjects));
+      
+      // Salvar de volta
+      await this.saveBoard(userId, updatedProjects);
       
       console.log('✅ Projeto atualizado');
     } catch (error) {
@@ -239,46 +189,21 @@ class SupabaseKanbanService {
 
   async addProject(userId: string, project: KanbanProject): Promise<void> {
     try {
-      // Verificar autenticação
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user || user.id !== userId) {
-        throw new Error('Usuário não autenticado ou ID não confere');
-      }
-
       // Garantir que o projeto tenha um UUID válido
       let validId = project.id;
       if (!validId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
         validId = generateUUID();
       }
 
-      // Inserir no Supabase
-      const projectData = {
-        id: validId,
-        user_id: userId,
-        title: project.title,
-        client: project.client,
-        due_date: project.dueDate || null,
-        priority: project.priority,
-        status: project.status,
-        description: project.description || null,
-        links: project.links || [],
-        created_at: project.createdAt,
-        updated_at: project.updatedAt
-      };
-
-      const { error } = await supabase
-        .from('user_kanban_boards')
-        .insert(projectData);
-
-      if (error) {
-        console.error('❌ Erro ao adicionar no Supabase:', error);
-      }
-
-      // Atualizar localStorage como backup
+      // Carregar projetos atuais
       const projects = await this.loadBoard(userId);
+      
+      // Adicionar o novo projeto
       const updatedProject = { ...project, id: validId };
       const updatedProjects = [...projects, updatedProject];
-      localStorage.setItem('entregaFlowProjects', JSON.stringify(updatedProjects));
+      
+      // Salvar de volta
+      await this.saveBoard(userId, updatedProjects);
       
       console.log('✅ Projeto adicionado');
     } catch (error) {
@@ -289,27 +214,14 @@ class SupabaseKanbanService {
 
   async deleteProject(userId: string, projectId: string): Promise<void> {
     try {
-      // Verificar autenticação
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user || user.id !== userId) {
-        throw new Error('Usuário não autenticado ou ID não confere');
-      }
-
-      // Deletar do Supabase
-      const { error } = await supabase
-        .from('user_kanban_boards')
-        .delete()
-        .eq('id', projectId)
-        .eq('user_id', userId);
-
-      if (error) {
-        console.error('❌ Erro ao deletar do Supabase:', error);
-      }
-
-      // Atualizar localStorage como backup
+      // Carregar projetos atuais
       const projects = await this.loadBoard(userId);
+      
+      // Remover o projeto específico
       const updatedProjects = projects.filter(p => p.id !== projectId);
-      localStorage.setItem('entregaFlowProjects', JSON.stringify(updatedProjects));
+      
+      // Salvar de volta
+      await this.saveBoard(userId, updatedProjects);
       
       console.log('✅ Projeto deletado');
     } catch (error) {
