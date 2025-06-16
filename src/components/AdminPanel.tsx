@@ -116,45 +116,34 @@ const AdminPanel = () => {
 
   const handleUpdateSubscription = async (userId: string, newPlan: string) => {
     try {
-      const validPlan = newPlan as SubscriptionPlan;
+      console.log('🔄 Atualizando assinatura para usuário:', userId, 'novo plano:', newPlan);
       
-      const subscriptionData = {
-        plan: validPlan,
-        status: 'active' as const,
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        payment_provider: 'manual_admin',
-        amount: validPlan === 'basic' ? 29 : validPlan === 'premium' ? 59.90 : validPlan === 'enterprise' ? 199 : validPlan === 'enterprise-annual' ? 1990 : 0,
-        currency: 'BRL'
-      };
-
-      const updateData = {
-        subscription: validPlan,
-        subscription_data: subscriptionData
-      };
-
       const { error } = await supabase
         .from('profiles')
-        .update(updateData)
+        .update({ subscription: newPlan })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao atualizar assinatura:', error);
+        throw error;
+      }
 
       setUsers(users.map(u => u.id === userId ? { 
         ...u, 
-        subscription: validPlan,
-        subscription_data: subscriptionData
+        subscription: newPlan as SubscriptionPlan
       } : u));
       
       toast({ 
         title: 'Sucesso', 
-        description: `Plano atualizado para ${validPlan}` 
+        description: `Plano atualizado para ${newPlan}` 
       });
+      
+      console.log('✅ Assinatura atualizada com sucesso');
     } catch (error: any) {
       console.error('❌ Erro ao atualizar assinatura:', error);
       toast({ 
         title: 'Erro', 
-        description: 'Erro ao atualizar plano', 
+        description: 'Erro ao atualizar plano: ' + error.message, 
         variant: 'destructive' 
       });
     }
@@ -162,25 +151,34 @@ const AdminPanel = () => {
 
   const handleUpdateUserType = async (userId: string, newType: string) => {
     try {
-      const validUserType = newType as UserType;
+      console.log('🔄 Atualizando tipo de usuário:', userId, 'novo tipo:', newType);
       
       const { error } = await supabase
         .from('profiles')
-        .update({ user_type: validUserType })
+        .update({ user_type: newType })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao atualizar tipo de usuário:', error);
+        throw error;
+      }
 
-      setUsers(users.map(u => u.id === userId ? { ...u, user_type: validUserType } : u));
+      setUsers(users.map(u => u.id === userId ? { 
+        ...u, 
+        user_type: newType as UserType 
+      } : u));
+      
       toast({ 
         title: 'Sucesso', 
-        description: `Tipo de usuário atualizado para ${validUserType}` 
+        description: `Tipo de usuário atualizado para ${newType}` 
       });
+      
+      console.log('✅ Tipo de usuário atualizado com sucesso');
     } catch (error: any) {
       console.error('❌ Erro ao atualizar tipo de usuário:', error);
       toast({ 
         title: 'Erro', 
-        description: 'Erro ao atualizar tipo de usuário', 
+        description: 'Erro ao atualizar tipo de usuário: ' + error.message, 
         variant: 'destructive' 
       });
     }
@@ -188,23 +186,30 @@ const AdminPanel = () => {
 
   const handleBanUser = async (userId: string, banned: boolean) => {
     try {
+      console.log('🔄 Alterando status de ban:', userId, 'banido:', banned);
+      
       const { error } = await supabase
         .from('profiles')
         .update({ banned })
         .eq('id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao banir/desbanir:', error);
+        throw error;
+      }
 
       setUsers(users.map(u => u.id === userId ? { ...u, banned } : u));
       toast({ 
         title: 'Sucesso', 
         description: banned ? 'Usuário banido' : 'Usuário desbanido' 
       });
+      
+      console.log('✅ Status de ban atualizado com sucesso');
     } catch (error: any) {
       console.error('❌ Erro ao banir/desbanir:', error);
       toast({ 
         title: 'Erro', 
-        description: 'Erro ao banir/desbanir usuário', 
+        description: 'Erro ao banir/desbanir usuário: ' + error.message, 
         variant: 'destructive' 
       });
     }
