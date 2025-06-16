@@ -31,16 +31,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 type SubscriptionPlan = 'free' | 'basic' | 'premium' | 'enterprise' | 'enterprise-annual';
+type UserType = 'individual' | 'company_owner' | 'employee' | 'admin';
 
 interface UserProfile {
   id: string;
   email: string;
   name?: string | null;
   subscription?: SubscriptionPlan | null;
-  user_type?: string | null;
+  user_type?: UserType | null;
   banned?: boolean | null;
-  created_at: string;
-  subscription_data?: any;
 }
 
 const AdminPanel = () => {
@@ -73,7 +72,7 @@ const AdminPanel = () => {
       // Buscar profiles diretamente da tabela
       const { data: profilesData, error } = await supabase
         .from('profiles')
-        .select('id, email, name, subscription, user_type, banned, created_at, subscription_data')
+        .select('id, email, name, subscription, user_type, banned')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -163,17 +162,19 @@ const AdminPanel = () => {
 
   const handleUpdateUserType = async (userId: string, newType: string) => {
     try {
+      const validUserType = newType as UserType;
+      
       const { error } = await supabase
         .from('profiles')
-        .update({ user_type: newType })
+        .update({ user_type: validUserType })
         .eq('id', userId);
 
       if (error) throw error;
 
-      setUsers(users.map(u => u.id === userId ? { ...u, user_type: newType } : u));
+      setUsers(users.map(u => u.id === userId ? { ...u, user_type: validUserType } : u));
       toast({ 
         title: 'Sucesso', 
-        description: `Tipo de usuário atualizado para ${newType}` 
+        description: `Tipo de usuário atualizado para ${validUserType}` 
       });
     } catch (error: any) {
       console.error('❌ Erro ao atualizar tipo de usuário:', error);
