@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -36,11 +35,13 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
+type SubscriptionPlan = 'free' | 'basic' | 'premium' | 'enterprise' | 'enterprise-annual';
+
 interface UserProfile {
   id: string;
   email: string;
   name?: string | null;
-  subscription?: string | null;
+  subscription?: SubscriptionPlan | null;
   user_type?: string | null;
   banned?: boolean | null;
   created_at: string;
@@ -166,20 +167,23 @@ const AdminPanel = () => {
 
   const handleUpdateSubscription = async (userId: string, newPlan: string) => {
     try {
+      // Ensure the plan is a valid subscription type
+      const validPlan = newPlan as SubscriptionPlan;
+      
       const subscriptionData = {
-        plan: newPlan,
-        status: 'active',
+        plan: validPlan,
+        status: 'active' as const,
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         payment_provider: 'manual_admin',
-        amount: newPlan === 'basic' ? 29 : newPlan === 'premium' ? 49 : newPlan === 'enterprise' ? 99 : 0,
+        amount: validPlan === 'basic' ? 29 : validPlan === 'premium' ? 49 : validPlan === 'enterprise' ? 99 : 0,
         currency: 'BRL'
       };
 
       const { error } = await supabase
         .from('profiles')
         .update({ 
-          subscription: newPlan,
+          subscription: validPlan,
           subscription_data: subscriptionData,
           updated_at: new Date().toISOString()
         })
@@ -189,13 +193,13 @@ const AdminPanel = () => {
 
       setUsers(users.map(u => u.id === userId ? { 
         ...u, 
-        subscription: newPlan,
+        subscription: validPlan,
         subscription_data: subscriptionData
       } : u));
       
       toast({ 
         title: 'Sucesso', 
-        description: `Plano atualizado para ${newPlan}` 
+        description: `Plano atualizado para ${validPlan}` 
       });
       await loadData(); // Recarregar analytics
     } catch (error) {
