@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import {
   Card,
@@ -79,11 +78,7 @@ const AdminPanel = () => {
       setLoading(true);
       console.log('🔍 Admin carregando dados do sistema...');
       
-      // Usar service_role para ter acesso total aos dados
-      // Como não temos acesso direto ao service_role no frontend,
-      // vamos usar uma abordagem alternativa com RLS
-      
-      // Primeiro, tentar com a consulta normal
+      // Consulta simplificada para buscar perfis
       let { data: profilesData, error } = await supabase
         .from('profiles')
         .select(`
@@ -99,26 +94,7 @@ const AdminPanel = () => {
         `)
         .order('created_at', { ascending: false });
 
-      // Se falhar, tentar uma abordagem diferente apenas para admins autorizados
-      if (error && isCurrentUserAdmin) {
-        console.log('🔄 Tentando consulta com privilégios de admin...');
-        
-        // Para admins autorizados, vamos tentar uma consulta mais específica
-        const { data: adminData, error: adminError } = await supabase
-          .rpc('get_all_profiles_for_admin', {
-            admin_email: user?.email
-          });
-
-        if (adminError) {
-          // Se a função RPC não existir, usar a consulta padrão mesmo com erro
-          console.warn('⚠️ RPC não encontrada, usando consulta padrão');
-          profilesData = [];
-        } else {
-          profilesData = adminData;
-        }
-      }
-
-      if (error && !profilesData) {
+      if (error) {
         console.error('❌ Erro ao buscar perfis:', error);
         
         // Para o email autorizado, vamos mostrar pelo menos alguns dados básicos
