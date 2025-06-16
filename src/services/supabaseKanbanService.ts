@@ -31,9 +31,18 @@ class SupabaseKanbanService {
       console.log('👤 User ID:', userId);
       console.log('📊 Projetos para salvar:', projects.length);
 
-      // Primeiro, deletar todos os projetos existentes do usuário
+      // Verificar se o usuário está autenticado
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('❌ Usuário não autenticado:', authError);
+        throw new Error('Usuário não autenticado');
+      }
+
+      console.log('✅ Usuário autenticado:', user.id);
+
+      // Primeiro, deletar todos os projetos existentes do usuário usando SQL direto
       const { error: deleteError } = await supabase
-        .from('user_kanban_boards')
+        .from('user_kanban_boards' as any)
         .delete()
         .eq('user_id', userId);
 
@@ -67,7 +76,7 @@ class SupabaseKanbanService {
         });
 
         const { error: insertError } = await supabase
-          .from('user_kanban_boards')
+          .from('user_kanban_boards' as any)
           .insert(projectsToInsert);
 
         if (insertError) {
@@ -98,8 +107,16 @@ class SupabaseKanbanService {
       console.log('📦 Tentando carregar do Supabase...');
       console.log('👤 User ID:', userId);
 
+      // Verificar se o usuário está autenticado
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('❌ Usuário não autenticado:', authError);
+        console.log('📦 Carregando do localStorage como fallback');
+        return this.loadFromLocalStorage(userId);
+      }
+
       const { data, error } = await supabase
-        .from('user_kanban_boards')
+        .from('user_kanban_boards' as any)
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
@@ -116,7 +133,7 @@ class SupabaseKanbanService {
       }
 
       // Converter dados do Supabase para o formato KanbanProject
-      const projects: KanbanProject[] = data.map(row => ({
+      const projects: KanbanProject[] = data.map((row: any) => ({
         id: row.id,
         title: row.title,
         client: row.client,
@@ -160,6 +177,12 @@ class SupabaseKanbanService {
 
   async updateProject(userId: string, projectId: string, updates: Partial<KanbanProject>): Promise<void> {
     try {
+      // Verificar autenticação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuário não autenticado');
+      }
+
       // Primeiro atualizar no Supabase
       const updateData: any = {};
       if (updates.title) updateData.title = updates.title;
@@ -172,7 +195,7 @@ class SupabaseKanbanService {
       updateData.updated_at = new Date().toISOString();
 
       const { error } = await supabase
-        .from('user_kanban_boards')
+        .from('user_kanban_boards' as any)
         .update(updateData)
         .eq('id', projectId)
         .eq('user_id', userId);
@@ -197,6 +220,12 @@ class SupabaseKanbanService {
 
   async addProject(userId: string, project: KanbanProject): Promise<void> {
     try {
+      // Verificar autenticação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuário não autenticado');
+      }
+
       // Garantir que o projeto tenha um UUID válido
       let validId = project.id;
       if (!validId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
@@ -219,7 +248,7 @@ class SupabaseKanbanService {
       };
 
       const { error } = await supabase
-        .from('user_kanban_boards')
+        .from('user_kanban_boards' as any)
         .insert(projectData);
 
       if (error) {
@@ -241,9 +270,15 @@ class SupabaseKanbanService {
 
   async deleteProject(userId: string, projectId: string): Promise<void> {
     try {
+      // Verificar autenticação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('Usuário não autenticado');
+      }
+
       // Deletar do Supabase
       const { error } = await supabase
-        .from('user_kanban_boards')
+        .from('user_kanban_boards' as any)
         .delete()
         .eq('id', projectId)
         .eq('user_id', userId);
