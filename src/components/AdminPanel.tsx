@@ -114,7 +114,7 @@ const AdminPanel = () => {
     }
   };
 
-  const handleUpdateSubscription = async (userId: string, newPlan: string) => {
+  const handleUpdateSubscription = async (userId: string, newPlan: SubscriptionPlan) => {
     try {
       console.log('🔄 Atualizando assinatura para usuário:', userId, 'novo plano:', newPlan);
       
@@ -130,7 +130,7 @@ const AdminPanel = () => {
 
       setUsers(users.map(u => u.id === userId ? { 
         ...u, 
-        subscription: newPlan as SubscriptionPlan
+        subscription: newPlan
       } : u));
       
       toast({ 
@@ -149,7 +149,7 @@ const AdminPanel = () => {
     }
   };
 
-  const handleUpdateUserType = async (userId: string, newType: string) => {
+  const handleUpdateUserType = async (userId: string, newType: UserType) => {
     try {
       console.log('🔄 Atualizando tipo de usuário:', userId, 'novo tipo:', newType);
       
@@ -165,7 +165,7 @@ const AdminPanel = () => {
 
       setUsers(users.map(u => u.id === userId ? { 
         ...u, 
-        user_type: newType as UserType 
+        user_type: newType
       } : u));
       
       toast({ 
@@ -359,7 +359,7 @@ const AdminPanel = () => {
                     <TableCell>
                       <Select 
                         value={user.subscription || 'free'} 
-                        onValueChange={(value) => handleUpdateSubscription(user.id, value)}
+                        onValueChange={(value: SubscriptionPlan) => handleUpdateSubscription(user.id, value)}
                       >
                         <SelectTrigger className="w-full min-w-[120px]">
                           <SelectValue />
@@ -376,7 +376,7 @@ const AdminPanel = () => {
                     <TableCell>
                       <Select 
                         value={user.user_type || 'individual'} 
-                        onValueChange={(value) => handleUpdateUserType(user.id, value)}
+                        onValueChange={(value: UserType) => handleUpdateUserType(user.id, value)}
                       >
                         <SelectTrigger className="w-full min-w-[150px]">
                           <SelectValue />
