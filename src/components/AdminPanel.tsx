@@ -85,7 +85,7 @@ const AdminPanel = () => {
       
       // Usar a função RPC para buscar todos os profiles
       const { data: profilesData, error } = await supabase
-        .rpc('get_all_profiles_for_admin');
+        .rpc('get_all_profiles_for_admin' as any);
 
       if (error) {
         console.error('❌ Erro ao buscar profiles via RPC:', error);
@@ -142,7 +142,7 @@ const AdminPanel = () => {
         bannedUsers
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro crítico ao carregar dados:', error);
       setDebugInfo({
         userEmail: user?.email,
@@ -169,7 +169,7 @@ const AdminPanel = () => {
       const updateData = { [field]: value };
       
       const { error } = await supabase
-        .rpc('admin_update_profile', {
+        .rpc('admin_update_profile' as any, {
           target_user_id: userId,
           update_data: updateData
         });
@@ -184,7 +184,7 @@ const AdminPanel = () => {
         title: 'Sucesso', 
         description: `${field} atualizado com sucesso` 
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao atualizar:', error);
       toast({ 
         title: 'Erro', 
@@ -214,7 +214,7 @@ const AdminPanel = () => {
       };
 
       const { error } = await supabase
-        .rpc('admin_update_profile', {
+        .rpc('admin_update_profile' as any, {
           target_user_id: userId,
           update_data: updateData
         });
@@ -232,7 +232,7 @@ const AdminPanel = () => {
         description: `Plano atualizado para ${validPlan}` 
       });
       await loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao atualizar assinatura:', error);
       toast({ 
         title: 'Erro', 
@@ -247,7 +247,7 @@ const AdminPanel = () => {
       const updateData = { banned };
 
       const { error } = await supabase
-        .rpc('admin_update_profile', {
+        .rpc('admin_update_profile' as any, {
           target_user_id: userId,
           update_data: updateData
         });
@@ -260,7 +260,7 @@ const AdminPanel = () => {
         description: banned ? 'Usuário banido' : 'Usuário desbanido' 
       });
       await loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao banir/desbanir:', error);
       toast({ 
         title: 'Erro', 
