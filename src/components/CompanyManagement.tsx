@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -90,36 +89,31 @@ const CompanyManagement = () => {
         // Fallback: buscar diretamente das tabelas se a função RPC falhar
         console.log('🔄 Tentando fallback direto nas tabelas...');
         
-        const { data: fallbackData, error: fallbackError } = await supabase
+        // Primeiro, vamos buscar apenas as agências sem tentar fazer join
+        const { data: agenciesData, error: agenciesError } = await supabase
           .from('agencies')
-          .select(`
-            id,
-            name,
-            owner_id,
-            created_at,
-            profiles!inner(email, name)
-          `)
+          .select('id, name, created_at')
           .order('created_at', { ascending: false });
 
-        if (fallbackError) {
-          console.error('❌ Erro no fallback:', fallbackError);
-          throw fallbackError;
+        if (agenciesError) {
+          console.error('❌ Erro no fallback:', agenciesError);
+          throw agenciesError;
         }
 
-        // Verificar se fallbackData é válido antes de mapear
-        if (!fallbackData || !Array.isArray(fallbackData)) {
+        // Verificar se agenciesData é válido antes de mapear
+        if (!agenciesData || !Array.isArray(agenciesData)) {
           console.error('❌ Dados inválidos no fallback');
           throw new Error('Dados inválidos recebidos do fallback');
         }
 
         // Transformar dados do fallback para o formato esperado
-        data = fallbackData.map(company => ({
+        data = agenciesData.map(company => ({
           id: company.id,
           name: company.name,
           description: '', // Sem descrição no fallback
-          owner_id: company.owner_id,
-          owner_email: (company.profiles as any).email,
-          owner_name: (company.profiles as any).name || (company.profiles as any).email,
+          owner_id: '', // Sem owner_id no fallback
+          owner_email: 'N/A', // Sem owner_email no fallback
+          owner_name: 'N/A', // Sem owner_name no fallback
           created_at: company.created_at,
           collaborators_count: 0 // Não temos essa informação no fallback
         }));
@@ -454,7 +448,7 @@ const CompanyManagement = () => {
                     <TableCell>
                       <div>
                         <p className="text-sm">{company.owner_email}</p>
-                        {company.owner_name && (
+                        {company.owner_name && company.owner_name !== 'N/A' && (
                           <p className="text-xs text-gray-600">{company.owner_name}</p>
                         )}
                       </div>
