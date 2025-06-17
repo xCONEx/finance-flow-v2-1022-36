@@ -39,15 +39,6 @@ interface Collaborator {
   user_name?: string;
 }
 
-interface Invitation {
-  id: string;
-  agency_id: string;
-  email: string;
-  status: string;
-  created_at: string;
-  expires_at: string;
-}
-
 const CompanyDashboard = () => {
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
@@ -55,7 +46,6 @@ const CompanyDashboard = () => {
   const [userAgencies, setUserAgencies] = useState<Agency[]>([]);
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Invite dialog
@@ -156,32 +146,7 @@ const CompanyDashboard = () => {
     }
   };
 
-  // Carregar convites pendentes
-  const loadInvitations = async (agencyId: string) => {
-    try {
-      console.log('📧 Carregando convites da agência:', agencyId);
-      
-      const { data, error } = await supabase
-        .from('agency_invitations')
-        .select('*')
-        .eq('agency_id', agencyId)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString());
-
-      if (error) {
-        console.error('❌ Erro ao carregar convites:', error);
-        throw error;
-      }
-
-      console.log('✅ Convites carregados:', data?.length || 0);
-      setInvitations(data || []);
-      
-    } catch (error: any) {
-      console.error('❌ Erro ao carregar convites:', error);
-    }
-  };
-
-  // Convidar colaborador
+  // Convidar colaborador (simplificado - adiciona diretamente)
   const handleInviteCollaborator = async () => {
     if (!selectedAgency || !inviteEmail.trim()) {
       toast({
@@ -193,38 +158,71 @@ const CompanyDashboard = () => {
     }
 
     try {
-      console.log('📧 Enviando convite para:', inviteEmail);
+      console.log('👤 Buscando usuário por email:', inviteEmail);
 
+      // Buscar usuário pelo email
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', inviteEmail.trim())
+        .single();
+
+      if (profileError || !profiles) {
+        toast({
+          title: 'Erro',
+          description: 'Usuário não encontrado com este email',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Verificar se já é colaborador
+      const { data: existing } = await supabase
+        .from('agency_collaborators')
+        .select('id')
+        .eq('agency_id', selectedAgency.id)
+        .eq('user_id', profiles.id)
+        .single();
+
+      if (existing) {
+        toast({
+          title: 'Erro',
+          description: 'Este usuário já é um colaborador',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Adicionar como colaborador
       const { error } = await supabase
-        .from('agency_invitations')
+        .from('agency_collaborators')
         .insert({
           agency_id: selectedAgency.id,
-          email: inviteEmail.trim(),
-          invited_by: user?.id,
-          status: 'pending',
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          user_id: profiles.id,
+          role: 'editor',
+          added_by: user?.id
         });
 
       if (error) {
-        console.error('❌ Erro ao enviar convite:', error);
+        console.error('❌ Erro ao adicionar colaborador:', error);
         throw error;
       }
 
-      console.log('✅ Convite enviado');
+      console.log('✅ Colaborador adicionado');
 
       toast({
         title: 'Sucesso',
-        description: `Convite enviado para ${inviteEmail}`
+        description: `Colaborador ${inviteEmail} adicionado com sucesso`
       });
 
       setIsInviteDialogOpen(false);
       setInviteEmail('');
-      loadInvitations(selectedAgency.id);
+      loadCollaborators(selectedAgency.id);
     } catch (error: any) {
-      console.error('❌ Erro ao enviar convite:', error);
+      console.error('❌ Erro ao adicionar colaborador:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao enviar convite: ' + (error?.message || 'Erro desconhecido'),
+        description: 'Erro ao adicionar colaborador: ' + (error?.message || 'Erro desconhecido'),
         variant: 'destructive'
       });
     }
@@ -269,41 +267,6 @@ const CompanyDashboard = () => {
     }
   };
 
-  // Cancelar convite
-  const handleCancelInvitation = async (invitationId: string) => {
-    try {
-      console.log('❌ Cancelando convite:', invitationId);
-
-      const { error } = await supabase
-        .from('agency_invitations')
-        .update({ status: 'cancelled' })
-        .eq('id', invitationId);
-
-      if (error) {
-        console.error('❌ Erro ao cancelar convite:', error);
-        throw error;
-      }
-
-      console.log('✅ Convite cancelado');
-
-      toast({
-        title: 'Sucesso',
-        description: 'Convite cancelado'
-      });
-
-      if (selectedAgency) {
-        loadInvitations(selectedAgency.id);
-      }
-    } catch (error: any) {
-      console.error('❌ Erro ao cancelar convite:', error);
-      toast({
-        title: 'Erro',
-        description: 'Erro ao cancelar convite',
-        variant: 'destructive'
-      });
-    }
-  };
-
   useEffect(() => {
     if (user) {
       loadUserAgencies();
@@ -313,7 +276,6 @@ const CompanyDashboard = () => {
   useEffect(() => {
     if (selectedAgency) {
       loadCollaborators(selectedAgency.id);
-      loadInvitations(selectedAgency.id);
     }
   }, [selectedAgency]);
 
@@ -454,7 +416,7 @@ const CompanyDashboard = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Users className="h-5 w-5 text-blue-600" />
@@ -462,15 +424,6 @@ const CompanyDashboard = () => {
                     </div>
                     <p className="text-2xl font-bold text-blue-600 mt-2">
                       {collaborators.length}
-                    </p>
-                  </div>
-                  <div className="bg-amber-50 p-4 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-amber-600" />
-                      <span className="font-medium">Convites Pendentes</span>
-                    </div>
-                    <p className="text-2xl font-bold text-amber-600 mt-2">
-                      {invitations.length}
                     </p>
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
@@ -501,7 +454,6 @@ const CompanyDashboard = () => {
                       onClick={() => {
                         if (selectedAgency) {
                           loadCollaborators(selectedAgency.id);
-                          loadInvitations(selectedAgency.id);
                         }
                       }}
                     >
@@ -512,12 +464,12 @@ const CompanyDashboard = () => {
                       <DialogTrigger asChild>
                         <Button size="sm">
                           <UserPlus className="h-4 w-4 mr-2" />
-                          Convidar
+                          Adicionar
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Convidar Colaborador</DialogTitle>
+                          <DialogTitle>Adicionar Colaborador</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4">
                           <div className="bg-gray-50 p-3 rounded-lg">
@@ -532,14 +484,17 @@ const CompanyDashboard = () => {
                               value={inviteEmail}
                               onChange={(e) => setInviteEmail(e.target.value)}
                             />
+                            <p className="text-xs text-gray-500 mt-1">
+                              O usuário deve estar cadastrado no sistema
+                            </p>
                           </div>
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
                               Cancelar
                             </Button>
                             <Button onClick={handleInviteCollaborator}>
-                              <Mail className="h-4 w-4 mr-2" />
-                              Enviar Convite
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Adicionar
                             </Button>
                           </div>
                         </div>
@@ -554,7 +509,7 @@ const CompanyDashboard = () => {
                     <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                     <p className="text-gray-500">Nenhum colaborador encontrado</p>
                     <p className="text-sm text-gray-400 mt-2">
-                      Convide pessoas para colaborar em sua empresa
+                      Adicione pessoas para colaborar em sua empresa
                     </p>
                   </div>
                 ) : (
@@ -591,50 +546,6 @@ const CompanyDashboard = () => {
                 )}
               </CardContent>
             </Card>
-
-            {/* Convites Pendentes */}
-            {invitations.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="h-5 w-5" />
-                    Convites Pendentes ({invitations.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {invitations.map((invitation) => (
-                      <div key={invitation.id} className="flex items-center justify-between p-4 border rounded-lg bg-amber-50">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-amber-100 rounded-full">
-                            <Mail className="h-4 w-4 text-amber-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{invitation.email}</p>
-                            <p className="text-sm text-gray-600">
-                              Enviado em {new Date(invitation.created_at).toLocaleDateString('pt-BR')}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              Expira em {new Date(invitation.expires_at).toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">Pendente</Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCancelInvitation(invitation.id)}
-                          >
-                            Cancelar
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </>
         )}
       </div>
