@@ -72,8 +72,8 @@ const AdminPanel = () => {
       setLoading(true);
       console.log('🔍 Carregando dados do admin via RPC...');
       
-      // Usar a nova função RPC para buscar todos os usuários
-      const { data: profilesData, error } = await supabase.rpc('get_all_profiles_for_admin');
+      // Usar a nova função RPC para buscar todos os usuários com type assertion
+      const { data: profilesData, error } = await (supabase as any).rpc('get_all_profiles_for_admin');
 
       if (error) {
         console.error('❌ Erro ao buscar perfis via RPC:', error);
@@ -143,8 +143,8 @@ const AdminPanel = () => {
         updateParams.new_banned = value;
       }
 
-      // Usar a nova função RPC para atualizar
-      const { data, error } = await supabase.rpc('admin_update_profile', updateParams);
+      // Usar a nova função RPC para atualizar com type assertion
+      const { data, error } = await (supabase as any).rpc('admin_update_profile', updateParams);
 
       if (error) {
         console.error('❌ Erro ao atualizar via RPC:', error);
@@ -179,8 +179,8 @@ const AdminPanel = () => {
         currency: 'BRL'
       };
 
-      // Usar a nova função RPC para atualizar
-      const { data, error } = await supabase.rpc('admin_update_profile', {
+      // Usar a nova função RPC para atualizar com type assertion
+      const { data, error } = await (supabase as any).rpc('admin_update_profile', {
         target_user_id: userId,
         new_subscription: newPlan,
         new_subscription_data: subscriptionData
@@ -236,8 +236,8 @@ const AdminPanel = () => {
 
   const handleBanUser = async (userId: string, banned: boolean) => {
     try {
-      // Usar a nova função RPC para atualizar
-      const { data, error } = await supabase.rpc('admin_update_profile', {
+      // Usar a nova função RPC para atualizar com type assertion
+      const { data, error } = await (supabase as any).rpc('admin_update_profile', {
         target_user_id: userId,
         new_banned: banned
       });

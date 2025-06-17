@@ -36,12 +36,12 @@ export const subscriptionService = {
       if (isOwnUser || isSuperAdmin) {
         try {
           console.log('🔑 Buscando assinatura via RPC...');
-          const { data: subscriptionData, error: rpcError } = await supabase.rpc('get_user_subscription', {
+          const { data: subscriptionData, error: rpcError } = await (supabase as any).rpc('get_user_subscription', {
             target_user_id: userId
           });
           
-          if (!rpcError && subscriptionData && subscriptionData.length > 0) {
-            const userSubscription = subscriptionData[0];
+          if (!rpcError && subscriptionData && Array.isArray(subscriptionData) && subscriptionData.length > 0) {
+            const userSubscription = subscriptionData[0] as any;
             console.log('✅ Dados de assinatura encontrados via RPC:', userSubscription);
             const subscriptionDetails = userSubscription.subscription_data as any;
 
@@ -112,7 +112,7 @@ export const subscriptionService = {
         try {
           console.log('🔑 Atualizando assinatura como admin via RPC...');
           
-          const { data, error: rpcError } = await supabase.rpc('admin_update_profile', {
+          const { data, error: rpcError } = await (supabase as any).rpc('admin_update_profile', {
             target_user_id: userId,
             new_subscription: subscriptionData.plan,
             new_subscription_data: subscriptionData
