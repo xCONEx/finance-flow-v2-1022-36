@@ -32,64 +32,33 @@ export const subscriptionService = {
 
       console.log('🔍 Verificações:', { isOwnUser, isSuperAdmin, userEmail: currentUser.user.email });
 
-      // Se for super admin, usar RPC segura
-      if (isSuperAdmin) {
+      // Usar a nova função RPC segura para buscar assinatura
+      if (isOwnUser || isSuperAdmin) {
         try {
-          console.log('🔑 Tentando buscar como super admin via RPC...');
-          const { data: profileData, error: rpcError } = await (supabase as any).rpc('get_profile_for_admin', {
+          console.log('🔑 Buscando assinatura via RPC...');
+          const { data: subscriptionData, error: rpcError } = await supabase.rpc('get_user_subscription', {
             target_user_id: userId
           });
           
-          if (!rpcError && profileData && profileData.length > 0) {
-            const userProfile = profileData[0];
-            console.log('✅ Dados encontrados via RPC admin:', userProfile);
-            const subscriptionData = userProfile.subscription_data as any;
+          if (!rpcError && subscriptionData && subscriptionData.length > 0) {
+            const userSubscription = subscriptionData[0];
+            console.log('✅ Dados de assinatura encontrados via RPC:', userSubscription);
+            const subscriptionDetails = userSubscription.subscription_data as any;
 
             return {
-              plan: userProfile.subscription || 'free',
-              status: subscriptionData?.status || 'inactive',
-              current_period_start: subscriptionData?.current_period_start,
-              current_period_end: subscriptionData?.current_period_end,
-              payment_provider: subscriptionData?.payment_provider,
-              amount: subscriptionData?.amount,
-              currency: subscriptionData?.currency || 'BRL'
+              plan: userSubscription.subscription || 'free',
+              status: subscriptionDetails?.status || 'inactive',
+              current_period_start: subscriptionDetails?.current_period_start,
+              current_period_end: subscriptionDetails?.current_period_end,
+              payment_provider: subscriptionDetails?.payment_provider,
+              amount: subscriptionDetails?.amount,
+              currency: subscriptionDetails?.currency || 'BRL'
             };
           } else {
-            console.log('⚠️ RPC admin não retornou dados, tentando busca direta...');
+            console.log('⚠️ RPC não retornou dados:', rpcError);
           }
         } catch (rpcError) {
-          console.error('❌ Erro na chamada RPC admin:', rpcError);
-        }
-      }
-
-      // Fallback: tentar busca direta (para próprio usuário ou se RPC falhou)
-      if (isOwnUser || isSuperAdmin) {
-        try {
-          console.log('🔍 Tentando busca direta...');
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('subscription, subscription_data')
-            .eq('id', userId)
-            .single();
-
-          if (!error && data) {
-            console.log('✅ Dados encontrados via consulta direta:', data);
-            const subscriptionData = data.subscription_data as any;
-
-            return {
-              plan: data.subscription || 'free',
-              status: subscriptionData?.status || 'inactive',
-              current_period_start: subscriptionData?.current_period_start,
-              current_period_end: subscriptionData?.current_period_end,
-              payment_provider: subscriptionData?.payment_provider,
-              amount: subscriptionData?.amount,
-              currency: subscriptionData?.currency || 'BRL'
-            };
-          } else {
-            console.error('❌ Erro na consulta direta:', error);
-          }
-        } catch (directError) {
-          console.error('❌ Erro na consulta direta:', directError);
+          console.error('❌ Erro na chamada RPC:', rpcError);
         }
       }
 
@@ -138,18 +107,15 @@ export const subscriptionService = {
         return false;
       }
 
-      // Se for super admin, usar RPC segura
+      // Usar a nova função RPC para atualizar
       if (isSuperAdmin) {
         try {
-          console.log('🔑 Atualizando como super admin via RPC...');
-          const updateData = {
-            subscription: subscriptionData.plan,
-            subscription_data: subscriptionData
-          };
-
-          const { error: rpcError } = await (supabase as any).rpc('admin_update_profile', {
+          console.log('🔑 Atualizando assinatura como admin via RPC...');
+          
+          const { data, error: rpcError } = await supabase.rpc('admin_update_profile', {
             target_user_id: userId,
-            update_data: updateData
+            new_subscription: subscriptionData.plan,
+            new_subscription_data: subscriptionData
           });
 
           if (!rpcError) {
@@ -163,8 +129,8 @@ export const subscriptionService = {
         }
       }
 
-      // Fallback: atualização direta (para próprio usuário ou se RPC falhou)
-      if (isOwnUser || isSuperAdmin) {
+      // Fallback: atualização direta para próprio usuário
+      if (isOwnUser) {
         try {
           console.log('🔄 Tentando atualização direta...');
           const { error } = await supabase
