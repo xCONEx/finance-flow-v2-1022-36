@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -74,71 +75,42 @@ const CompanyManagement = () => {
   const [editCompanyDescription, setEditCompanyDescription] = useState('');
   const [editOwnerEmail, setEditOwnerEmail] = useState('');
 
-  // Load companies com melhor tratamento de erro
+  // Load companies with better error handling
   const loadCompanies = async () => {
     try {
       setLoading(true);
       console.log('🏢 Tentando carregar empresas via RPC...');
       
-      // Tentar usar a função RPC
+      // Try RPC function first
       let { data, error } = await (supabase as any).rpc('get_all_companies_for_admin');
       
       if (error) {
         console.error('❌ Erro na função RPC:', error);
         
-        // Fallback melhorado: buscar diretamente das tabelas
-        console.log('🔄 Tentando fallback direto nas tabelas...');
+        // Simple fallback: just get agencies with basic info
+        console.log('🔄 Tentando fallback simples...');
         
         const { data: agenciesData, error: agenciesError } = await supabase
           .from('agencies')
-          .select(`
-            id,
-            name,
-            description,
-            owner_id,
-            created_at,
-            profiles!inner(email, name)
-          `)
+          .select('id, name, created_at, owner_uid')
           .order('created_at', { ascending: false });
 
         if (agenciesError) {
-          console.error('❌ Erro no fallback completo:', agenciesError);
-          
-          // Fallback mínimo: apenas agências sem join
-          const { data: minimalData, error: minimalError } = await supabase
-            .from('agencies')
-            .select('id, name, created_at')
-            .order('created_at', { ascending: false });
-
-          if (minimalError) {
-            console.error('❌ Erro no fallback mínimo:', minimalError);
-            throw minimalError;
-          }
-
-          // Transformar dados mínimos
-          data = (minimalData || []).map(company => ({
-            id: company.id,
-            name: company.name,
-            description: '',
-            owner_id: '',
-            owner_email: 'N/A',
-            owner_name: 'N/A',
-            created_at: company.created_at,
-            collaborators_count: 0
-          }));
-        } else {
-          // Transformar dados do fallback completo
-          data = (agenciesData || []).map(company => ({
-            id: company.id,
-            name: company.name,
-            description: company.description || '',
-            owner_id: company.owner_id,
-            owner_email: (company.profiles as any)?.email || 'N/A',
-            owner_name: (company.profiles as any)?.name || (company.profiles as any)?.email || 'N/A',
-            created_at: company.created_at,
-            collaborators_count: 0
-          }));
+          console.error('❌ Erro no fallback:', agenciesError);
+          throw agenciesError;
         }
+
+        // Transform minimal data
+        data = (agenciesData || []).map(company => ({
+          id: company.id,
+          name: company.name,
+          description: '',
+          owner_id: company.owner_uid || '',
+          owner_email: 'N/A',
+          owner_name: 'N/A',
+          created_at: company.created_at,
+          collaborators_count: 0
+        }));
       }
       
       console.log('✅ Empresas carregadas:', data?.length || 0);
@@ -160,12 +132,12 @@ const CompanyManagement = () => {
     try {
       console.log('👥 Carregando usuários...');
       
-      // Tentar usar função RPC primeiro
+      // Try RPC function first
       let { data, error } = await (supabase as any).rpc('get_all_profiles_for_admin');
       
       if (error) {
         console.log('🔄 Fallback para busca direta de usuários...');
-        // Fallback para busca direta
+        // Fallback to direct query
         const { data: fallbackData, error: fallbackError } = await supabase
           .from('profiles')
           .select('id, email, name, user_type')
@@ -224,6 +196,7 @@ const CompanyManagement = () => {
         owner: owner.id 
       });
 
+      // Try RPC first
       const { data, error } = await (supabase as any).rpc('admin_create_company', {
         company_name: newCompanyName.trim(),
         company_description: newCompanyDescription.trim() || null,
@@ -233,15 +206,14 @@ const CompanyManagement = () => {
       if (error) {
         console.error('❌ Erro ao criar empresa via RPC:', error);
         
-        // Fallback: inserir diretamente na tabela
+        // Fallback: insert directly using current schema
         console.log('🔄 Tentando criar empresa via inserção direta...');
         
         const { data: insertData, error: insertError } = await supabase
           .from('agencies')
           .insert({
             name: newCompanyName.trim(),
-            description: newCompanyDescription.trim() || null,
-            owner_id: owner.id
+            owner_uid: owner.id  // Using owner_uid as per current schema
           })
           .select()
           .single();
@@ -300,6 +272,7 @@ const CompanyManagement = () => {
     try {
       console.log('✏️ Editando empresa:', editingCompany.id);
 
+      // Try RPC first
       const { data, error } = await (supabase as any).rpc('admin_update_company', {
         company_id: editingCompany.id,
         new_name: editCompanyName.trim(),
@@ -310,16 +283,14 @@ const CompanyManagement = () => {
       if (error) {
         console.error('❌ Erro ao atualizar empresa via RPC:', error);
         
-        // Fallback: atualizar diretamente na tabela
+        // Fallback: update directly using current schema
         console.log('🔄 Tentando atualizar empresa via update direto...');
         
         const { error: updateError } = await supabase
           .from('agencies')
           .update({
             name: editCompanyName.trim(),
-            description: editCompanyDescription.trim() || null,
-            owner_id: owner.id,
-            updated_at: new Date().toISOString()
+            owner_uid: owner.id  // Using owner_uid as per current schema
           })
           .eq('id', editingCompany.id);
 
@@ -360,6 +331,7 @@ const CompanyManagement = () => {
     try {
       console.log('🗑️ Excluindo empresa:', companyId);
 
+      // Try RPC first
       const { data, error } = await (supabase as any).rpc('admin_delete_company', {
         company_id: companyId
       });
@@ -367,7 +339,7 @@ const CompanyManagement = () => {
       if (error) {
         console.error('❌ Erro ao excluir empresa via RPC:', error);
         
-        // Fallback: deletar diretamente da tabela
+        // Fallback: delete directly
         console.log('🔄 Tentando excluir empresa via delete direto...');
         
         const { error: deleteError } = await supabase
@@ -589,7 +561,7 @@ const CompanyManagement = () => {
                 {companies.length === 0 ? 'Nenhuma empresa encontrada' : 'Nenhuma empresa corresponde à busca'}
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Verifique se as funções RPC foram criadas no Supabase
+                Execute o script SQL no Supabase para criar as funções RPC
               </p>
             </div>
           )}
