@@ -416,7 +416,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Invite collaborator usando tabela agency_invitations
+  // Invite collaborator usando apenas agency_collaborators
   const handleInviteCollaborator = async () => {
     if (!selectedCompany || !inviteEmail.trim()) {
       toast({
@@ -428,47 +428,78 @@ const CompanyManagement = () => {
     }
 
     try {
-      console.log('📧 Convidando colaborador:', { 
-        company: selectedCompany.name, 
-        email: inviteEmail 
-      });
+      console.log('👤 Buscando usuário por email:', inviteEmail);
 
-      // Verificar se o usuário atual é admin ou super admin
+      // Buscar usuário pelo email
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', inviteEmail.trim())
+        .single();
+
+      if (profileError || !profiles) {
+        toast({
+          title: 'Erro',
+          description: 'Usuário não encontrado com este email',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Verificar se já é colaborador
+      const { data: existing } = await supabase
+        .from('agency_collaborators')
+        .select('id')
+        .eq('agency_id', selectedCompany.id)
+        .eq('user_id', profiles.id)
+        .single();
+
+      if (existing) {
+        toast({
+          title: 'Erro',
+          description: 'Este usuário já é um colaborador',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      // Verificar se o usuário atual é admin
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('Usuário não autenticado');
       }
 
+      // Adicionar como colaborador diretamente
       const { error } = await supabase
-        .from('agency_invitations')
+        .from('agency_collaborators')
         .insert({
           agency_id: selectedCompany.id,
-          email: inviteEmail.trim(),
-          invited_by: user.id,
-          status: 'pending',
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 dias
+          user_id: profiles.id,
+          role: 'editor',
+          added_by: user.id
         });
 
       if (error) {
-        console.error('❌ Erro ao convidar colaborador:', error);
+        console.error('❌ Erro ao adicionar colaborador:', error);
         throw error;
       }
 
-      console.log('✅ Colaborador convidado');
+      console.log('✅ Colaborador adicionado');
 
       toast({
         title: 'Sucesso',
-        description: `Convite enviado para ${inviteEmail}`
+        description: `Colaborador ${inviteEmail} adicionado com sucesso`
       });
 
       setIsInviteDialogOpen(false);
       setInviteEmail('');
       setSelectedCompany(null);
+      loadCompanies();
     } catch (error: any) {
-      console.error('❌ Erro ao convidar colaborador:', error);
+      console.error('❌ Erro ao adicionar colaborador:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao enviar convite: ' + (error?.message || 'Erro desconhecido'),
+        description: 'Erro ao adicionar colaborador: ' + (error?.message || 'Erro desconhecido'),
         variant: 'destructive'
       });
     }
@@ -730,6 +761,9 @@ const CompanyManagement = () => {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                O usuário deve estar cadastrado no sistema
+              </p>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
@@ -737,7 +771,7 @@ const CompanyManagement = () => {
               </Button>
               <Button onClick={handleInviteCollaborator}>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Enviar Convite
+                Adicionar Colaborador
               </Button>
             </div>
           </div>
