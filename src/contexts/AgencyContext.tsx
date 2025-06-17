@@ -51,15 +51,18 @@ export const AgencyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     try {
       setLoading(true);
-      const { data, error } = await supabase.rpc('get_user_agencies');
+      // Usar any temporariamente até que os tipos RPC sejam gerados
+      const { data, error } = await (supabase as any).rpc('get_user_agencies');
       
       if (error) {
         console.error('❌ Erro ao carregar agências:', error);
         return;
       }
       
-      setAgencies(data || []);
-      console.log('🏢 Agências carregadas:', data?.length || 0);
+      // Verificar se data não é null e é um array
+      const agenciesData = data && Array.isArray(data) ? data : [];
+      setAgencies(agenciesData);
+      console.log('🏢 Agências carregadas:', agenciesData.length);
     } catch (error) {
       console.error('❌ Erro ao carregar agências:', error);
     } finally {
@@ -72,9 +75,9 @@ export const AgencyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!user) return false;
     
     try {
-      const { data, error } = await supabase.rpc('create_agency', {
+      const { data, error } = await (supabase as any).rpc('create_agency', {
         agency_name: name,
-        agency_description: description
+        agency_description: description || null
       });
       
       if (error) {
@@ -107,7 +110,7 @@ export const AgencyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!user) return false;
     
     try {
-      const { data, error } = await supabase.rpc('invite_collaborator', {
+      const { data, error } = await (supabase as any).rpc('invite_collaborator', {
         target_agency_id: agencyId,
         collaborator_email: email
       });
@@ -139,7 +142,7 @@ export const AgencyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!user) return false;
     
     try {
-      const { data, error } = await supabase.rpc('accept_agency_invitation', {
+      const { data, error } = await (supabase as any).rpc('accept_agency_invitation', {
         invitation_id: invitationId
       });
       
