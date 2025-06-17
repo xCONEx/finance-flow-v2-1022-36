@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -94,7 +95,6 @@ const CompanyManagement = () => {
           .select(`
             id,
             name,
-            description,
             owner_id,
             created_at,
             profiles!inner(email, name)
@@ -106,17 +106,23 @@ const CompanyManagement = () => {
           throw fallbackError;
         }
 
+        // Verificar se fallbackData é válido antes de mapear
+        if (!fallbackData || !Array.isArray(fallbackData)) {
+          console.error('❌ Dados inválidos no fallback');
+          throw new Error('Dados inválidos recebidos do fallback');
+        }
+
         // Transformar dados do fallback para o formato esperado
-        data = fallbackData?.map(company => ({
+        data = fallbackData.map(company => ({
           id: company.id,
           name: company.name,
-          description: company.description || '',
+          description: '', // Sem descrição no fallback
           owner_id: company.owner_id,
-          owner_email: company.profiles.email,
-          owner_name: company.profiles.name || company.profiles.email,
+          owner_email: (company.profiles as any).email,
+          owner_name: (company.profiles as any).name || (company.profiles as any).email,
           created_at: company.created_at,
           collaborators_count: 0 // Não temos essa informação no fallback
-        })) || [];
+        }));
       }
       
       console.log('✅ Empresas carregadas:', data?.length || 0);
