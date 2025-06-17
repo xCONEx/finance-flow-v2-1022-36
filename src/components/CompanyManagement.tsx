@@ -42,7 +42,7 @@ interface Company {
   id: string;
   name: string;
   description?: string;
-  owner_id: string;
+  owner_uid: string;
   owner_email: string;
   owner_name?: string;
   created_at: string;
@@ -81,20 +81,65 @@ const CompanyManagement = () => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
 
-  // Load companies using admin function
+  // Load companies diretamente da tabela agencies
   const loadCompanies = async () => {
     try {
       setLoading(true);
-      console.log('🏢 Carregando empresas via função admin...');
+      console.log('🏢 Carregando empresas...');
       
-      const { data, error } = await supabase.rpc('get_all_companies_for_admin');
+      const { data: agencies, error: agenciesError } = await supabase
+        .from('agencies')
+        .select(`
+          id,
+          name,
+          owner_uid,
+          status,
+          created_at,
+          updated_at
+        `);
 
-      if (error) {
-        console.error('❌ Erro ao carregar empresas:', error);
-        throw error;
+      if (agenciesError) {
+        console.error('❌ Erro ao carregar empresas:', agenciesError);
+        throw agenciesError;
       }
 
-      const companiesData = data && Array.isArray(data) ? data : [];
+      // Buscar dados dos proprietários
+      const ownerIds = agencies?.map(a => a.owner_uid) || [];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, name')
+        .in('id', ownerIds);
+
+      if (profilesError) {
+        console.error('❌ Erro ao carregar perfis:', profilesError);
+      }
+
+      // Buscar contagem de colaboradores
+      const { data: collaborators, error: collabError } = await supabase
+        .from('agency_collaborators')
+        .select('agency_id, id');
+
+      if (collabError) {
+        console.error('❌ Erro ao carregar colaboradores:', collabError);
+      }
+
+      // Combinar dados
+      const companiesData = agencies?.map(agency => {
+        const owner = profiles?.find(p => p.id === agency.owner_uid);
+        const collabCount = collaborators?.filter(c => c.agency_id === agency.id).length || 0;
+
+        return {
+          id: agency.id,
+          name: agency.name,
+          description: '', // Não existe no schema atual
+          owner_uid: agency.owner_uid,
+          owner_email: owner?.email || 'Email não encontrado',
+          owner_name: owner?.name || owner?.email || 'N/A',
+          created_at: agency.created_at,
+          collaborators_count: collabCount
+        };
+      }) || [];
+
       console.log('✅ Empresas carregadas:', companiesData.length);
       setCompanies(companiesData);
       
@@ -102,19 +147,21 @@ const CompanyManagement = () => {
       console.error('❌ Erro completo ao carregar empresas:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao carregar empresas. Verifique se você tem permissões de administrador.',
+        description: 'Erro ao carregar empresas.',
         variant: 'destructive'
       });
       setCompanies([]);
     }
   };
 
-  // Load users
+  // Load users diretamente da tabela profiles
   const loadUsers = async () => {
     try {
       console.log('👥 Carregando usuários...');
       
-      const { data, error } = await supabase.rpc('get_all_profiles_for_admin');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, name, user_type');
 
       if (error) {
         console.error('❌ Erro ao carregar usuários:', error);
@@ -142,7 +189,7 @@ const CompanyManagement = () => {
     loadUsers();
   }, []);
 
-  // Create company using admin function
+  // Create company diretamente na tabela
   const handleCreateCompany = async () => {
     if (!newCompanyName.trim() || !selectedOwnerEmail) {
       toast({
@@ -164,20 +211,34 @@ const CompanyManagement = () => {
     }
 
     try {
-      console.log('🏗️ Criando empresa via função admin:', { 
+      console.log('🏗️ Criando empresa:', { 
         name: newCompanyName, 
         owner: owner.id 
       });
 
-      const { data, error } = await supabase.rpc('admin_create_company', {
-        company_name: newCompanyName.trim(),
-        company_description: newCompanyDescription.trim() || null,
-        owner_user_id: owner.id
-      });
+      const { data, error } = await supabase
+        .from('agencies')
+        .insert({
+          name: newCompanyName.trim(),
+          owner_uid: owner.id,
+          status: 'active'
+        })
+        .select()
+        .single();
 
       if (error) {
         console.error('❌ Erro ao criar empresa:', error);
         throw error;
+      }
+
+      // Atualizar tipo do usuário para company_owner
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ user_type: 'company_owner' })
+        .eq('id', owner.id);
+
+      if (updateError) {
+        console.error('⚠️ Erro ao atualizar tipo do usuário:', updateError);
       }
 
       console.log('✅ Empresa criada:', data);
@@ -203,7 +264,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Edit company using admin function
+  // Edit company diretamente na tabela
   const handleEditCompany = async () => {
     if (!editingCompany || !editCompanyName.trim() || !editOwnerEmail) {
       toast({
@@ -225,18 +286,49 @@ const CompanyManagement = () => {
     }
 
     try {
-      console.log('✏️ Editando empresa via função admin:', editingCompany.id);
+      console.log('✏️ Editando empresa:', editingCompany.id);
 
-      const { data, error } = await supabase.rpc('admin_update_company', {
-        company_id: editingCompany.id,
-        new_name: editCompanyName.trim(),
-        new_description: editCompanyDescription.trim() || null,
-        new_owner_id: owner.id
-      });
+      const { error } = await supabase
+        .from('agencies')
+        .update({
+          name: editCompanyName.trim(),
+          owner_uid: owner.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingCompany.id);
 
       if (error) {
         console.error('❌ Erro ao atualizar empresa:', error);
         throw error;
+      }
+
+      // Atualizar tipo do novo owner
+      const { error: updateNewOwnerError } = await supabase
+        .from('profiles')
+        .update({ user_type: 'company_owner' })
+        .eq('id', owner.id);
+
+      if (updateNewOwnerError) {
+        console.error('⚠️ Erro ao atualizar novo owner:', updateNewOwnerError);
+      }
+
+      // Se mudou o owner, verificar se o antigo ainda tem outras empresas
+      if (editingCompany.owner_uid !== owner.id) {
+        const { data: otherAgencies } = await supabase
+          .from('agencies')
+          .select('id')
+          .eq('owner_uid', editingCompany.owner_uid);
+
+        if (!otherAgencies || otherAgencies.length === 0) {
+          const { error: updateOldOwnerError } = await supabase
+            .from('profiles')
+            .update({ user_type: 'individual' })
+            .eq('id', editingCompany.owner_uid);
+
+          if (updateOldOwnerError) {
+            console.error('⚠️ Erro ao atualizar antigo owner:', updateOldOwnerError);
+          }
+        }
       }
 
       console.log('✅ Empresa atualizada');
@@ -260,22 +352,49 @@ const CompanyManagement = () => {
     }
   };
 
-  // Delete company using admin function
+  // Delete company diretamente na tabela
   const handleDeleteCompany = async (companyId: string) => {
     if (!confirm('Tem certeza que deseja excluir esta empresa? Esta ação não pode ser desfeita.')) {
       return;
     }
 
     try {
-      console.log('🗑️ Excluindo empresa via função admin:', companyId);
+      console.log('🗑️ Excluindo empresa:', companyId);
 
-      const { data, error } = await supabase.rpc('admin_delete_company', {
-        company_id: companyId
-      });
+      // Buscar owner antes de deletar
+      const { data: agency } = await supabase
+        .from('agencies')
+        .select('owner_uid')
+        .eq('id', companyId)
+        .single();
+
+      const { error } = await supabase
+        .from('agencies')
+        .delete()
+        .eq('id', companyId);
 
       if (error) {
         console.error('❌ Erro ao excluir empresa:', error);
         throw error;
+      }
+
+      // Verificar se o owner ainda tem outras empresas
+      if (agency?.owner_uid) {
+        const { data: otherAgencies } = await supabase
+          .from('agencies')
+          .select('id')
+          .eq('owner_uid', agency.owner_uid);
+
+        if (!otherAgencies || otherAgencies.length === 0) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ user_type: 'individual' })
+            .eq('id', agency.owner_uid);
+
+          if (updateError) {
+            console.error('⚠️ Erro ao atualizar tipo do usuário:', updateError);
+          }
+        }
       }
 
       console.log('✅ Empresa excluída');
@@ -297,7 +416,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Invite collaborator
+  // Invite collaborator usando tabela agency_invitations
   const handleInviteCollaborator = async () => {
     if (!selectedCompany || !inviteEmail.trim()) {
       toast({
@@ -314,18 +433,28 @@ const CompanyManagement = () => {
         email: inviteEmail 
       });
 
-      const { data, error } = await supabase.rpc('invite_collaborator', {
-        target_agency_id: selectedCompany.id,
-        collaborator_email: inviteEmail.trim(),
-        collaborator_role: 'member'
-      });
+      // Verificar se o usuário atual é admin ou super admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      const { error } = await supabase
+        .from('agency_invitations')
+        .insert({
+          agency_id: selectedCompany.id,
+          email: inviteEmail.trim(),
+          invited_by: user.id,
+          status: 'pending',
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 dias
+        });
 
       if (error) {
         console.error('❌ Erro ao convidar colaborador:', error);
         throw error;
       }
 
-      console.log('✅ Colaborador convidado:', data);
+      console.log('✅ Colaborador convidado');
 
       toast({
         title: 'Sucesso',
@@ -425,14 +554,6 @@ const CompanyManagement = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Descrição (opcional)</label>
-                    <Input
-                      placeholder="Digite uma descrição"
-                      value={newCompanyDescription}
-                      onChange={(e) => setNewCompanyDescription(e.target.value)}
-                    />
-                  </div>
-                  <div>
                     <label className="text-sm font-medium">Proprietário</label>
                     <Select value={selectedOwnerEmail} onValueChange={setSelectedOwnerEmail}>
                       <SelectTrigger>
@@ -479,9 +600,6 @@ const CompanyManagement = () => {
                       <div>
                         <p className="font-medium text-sm">{company.name}</p>
                         <p className="text-xs text-gray-400">ID: {company.id.slice(0, 8)}...</p>
-                        {company.description && (
-                          <p className="text-xs text-gray-600 mt-1">{company.description}</p>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -564,14 +682,6 @@ const CompanyManagement = () => {
                 placeholder="Digite o nome da empresa"
                 value={editCompanyName}
                 onChange={(e) => setEditCompanyName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Descrição</label>
-              <Input
-                placeholder="Digite uma descrição"
-                value={editCompanyDescription}
-                onChange={(e) => setEditCompanyDescription(e.target.value)}
               />
             </div>
             <div>
