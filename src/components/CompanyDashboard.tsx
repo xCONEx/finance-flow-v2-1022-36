@@ -68,11 +68,9 @@ const CompanyDashboard = () => {
 
       console.log('✅ Estrutura da tabela agencies:', data?.[0] || 'Nenhum dado encontrado');
 
-      // Filter by user on the client side for now
+      // Filter by user on the client side using the correct column name
       const userOwnedAgencies = data?.filter(agency => 
-        agency.owner_id === user.id || 
-        agency.owner_uid === user.id || 
-        agency.owner === user.id
+        agency.owner_uid === user.id
       ) || [];
 
       console.log('✅ Agências do usuário:', userOwnedAgencies.length);
