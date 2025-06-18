@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -793,19 +792,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       if (!user) {
         throw new Error('Usuário não autenticado');
-      }
-
-      // Verificar se as colunas existem na tabela
-      console.log('🔍 Verificando estrutura da tabela expenses...');
-      const { data: tableInfo, error: tableError } = await supabase
-        .rpc('exec', { 
-          sql: "SELECT column_name FROM information_schema.columns WHERE table_name = 'expenses' ORDER BY column_name;" 
-        });
-      
-      if (tableError) {
-        console.error('❌ Erro ao verificar estrutura da tabela:', tableError);
-      } else {
-        console.log('📋 Colunas disponíveis na tabela expenses:', tableInfo);
       }
 
       const dataToInsert = {
