@@ -15,7 +15,7 @@ export const useNotifications = () => {
     // Agendar notificações para todos os custos com vencimento
     if (monthlyCosts.length > 0) {
       monthlyCosts.forEach(cost => {
-        if (cost.due_date && cost.notification_enabled) {
+        if (cost.dueDate && cost.notificationEnabled) {
           notificationService.scheduleExpenseReminder(cost);
         }
       });

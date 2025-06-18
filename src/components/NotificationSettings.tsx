@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -72,7 +71,10 @@ const NotificationSettings = () => {
         title: 'Finance Flow - Teste',
         body: 'Esta é uma notificação de teste! 💰',
         data: {
-          test: true
+          costId: 'test-cost',
+          amount: 100,
+          dueDate: new Date().toISOString(),
+          category: 'teste'
         }
       });
       

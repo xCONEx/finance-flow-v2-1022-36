@@ -337,6 +337,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   };
 
+  const loadMonthlyCosts = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (expensesError) {
+        console.error('❌ Erro ao carregar despesas:', expensesError);
+      } else if (expensesData) {
+        setMonthlyCosts(expensesData.map(expense => ({
+          id: expense.id,
+          description: expense.description,
+          category: expense.category,
+          value: Number(expense.value),
+          month: expense.month,
+          dueDate: (expense as any).due_date || undefined,
+          isRecurring: (expense as any).is_recurring || false,
+          installments: (expense as any).installments || undefined,
+          currentInstallment: (expense as any).current_installment || undefined,
+          parentId: (expense as any).parent_id || undefined,
+          notificationEnabled: (expense as any).notification_enabled !== false,
+          createdAt: expense.created_at,
+          userId: expense.user_id
+        })));
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar despesas:', error);
+    }
+  };
+
   const loadAllData = async () => {
     if (!user) return;
     
@@ -371,35 +404,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('Erro ao carregar equipamentos:', error);
       }
 
-      // Load expenses (monthly costs) - melhorar tratamento de erros
-      try {
-        const { data: expensesData, error: expensesError } = await supabase
-          .from('expenses')
-          .select('*')
-          .eq('user_id', user.id);
-        
-        if (expensesError) {
-          console.error('❌ Erro ao carregar despesas:', expensesError);
-        } else if (expensesData) {
-          setMonthlyCosts(expensesData.map(expense => ({
-            id: expense.id,
-            description: expense.description,
-            category: expense.category,
-            value: Number(expense.value),
-            month: expense.month,
-            dueDate: (expense as any).due_date || undefined,
-            isRecurring: (expense as any).is_recurring || false,
-            installments: (expense as any).installments || undefined,
-            currentInstallment: (expense as any).current_installment || undefined,
-            parentId: (expense as any).parent_id || undefined,
-            notificationEnabled: (expense as any).notification_enabled !== false,
-            createdAt: expense.created_at,
-            userId: expense.user_id
-          })));
-        }
-      } catch (error) {
-        console.warn('Erro ao carregar despesas:', error);
-      }
+      // Load expenses (monthly costs)
+      await loadMonthlyCosts();
 
       // Load work routine
       await refreshWorkRoutine();
@@ -814,7 +820,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('✅ Custo inserido com sucesso:', data);
 
       // Agendar notificação se habilitada
-      if (data.notification_enabled && data.due_date) {
+      if ((data as any).notification_enabled && (data as any).due_date) {
         try {
           await scheduleNotification(data);
           console.log('🔔 Notificação agendada para:', data.description);
@@ -873,7 +879,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('✅ Custo atualizado:', data);
 
       // Reagendar notificação se necessário
-      if (data.notification_enabled && data.due_date) {
+      if ((data as any).notification_enabled && (data as any).due_date) {
         try {
           await scheduleNotification(data);
           console.log('🔔 Notificação reagendada para:', data.description);
