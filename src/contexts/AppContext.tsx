@@ -348,45 +348,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await refreshJobs();
 
       // Load equipment (work items)
-      const { data: equipmentData } = await supabase
-        .from('equipment')
-        .select('*')
-        .eq('user_id', user.id);
-      
-      if (equipmentData) {
-        setWorkItems(equipmentData.map(item => ({
-          id: item.id,
-          description: item.description,
-          category: item.category,
-          value: Number(item.value),
-          depreciationYears: item.depreciation_years || 5,
-          createdAt: item.created_at,
-          userId: item.user_id
-        })));
+      try {
+        const { data: equipmentData } = await supabase
+          .from('equipment')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (equipmentData) {
+          setWorkItems(equipmentData.map(item => ({
+            id: item.id,
+            description: item.description,
+            category: item.category,
+            value: Number(item.value),
+            depreciationYears: item.depreciation_years || 5,
+            createdAt: item.created_at,
+            userId: item.user_id
+          })));
+        }
+      } catch (error) {
+        console.warn('Erro ao carregar equipamentos:', error);
       }
 
-      // Load expenses (monthly costs) with new fields - handle missing columns gracefully
-      const { data: expensesData } = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('user_id', user.id);
-      
-      if (expensesData) {
-        setMonthlyCosts(expensesData.map(expense => ({
-          id: expense.id,
-          description: expense.description,
-          category: expense.category,
-          value: Number(expense.value),
-          month: expense.month,
-          dueDate: (expense as any).due_date || undefined,
-          isRecurring: (expense as any).is_recurring || false,
-          installments: (expense as any).installments || undefined,
-          currentInstallment: (expense as any).current_installment || undefined,
-          parentId: (expense as any).parent_id || undefined,
-          notificationEnabled: (expense as any).notification_enabled !== false,
-          createdAt: expense.created_at,
-          userId: expense.user_id
-        })));
+      // Load expenses (monthly costs) - melhorar tratamento de erros
+      try {
+        const { data: expensesData, error: expensesError } = await supabase
+          .from('expenses')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (expensesError) {
+          console.error('❌ Erro ao carregar despesas:', expensesError);
+        } else if (expensesData) {
+          setMonthlyCosts(expensesData.map(expense => ({
+            id: expense.id,
+            description: expense.description,
+            category: expense.category,
+            value: Number(expense.value),
+            month: expense.month,
+            dueDate: (expense as any).due_date || undefined,
+            isRecurring: (expense as any).is_recurring || false,
+            installments: (expense as any).installments || undefined,
+            currentInstallment: (expense as any).current_installment || undefined,
+            parentId: (expense as any).parent_id || undefined,
+            notificationEnabled: (expense as any).notification_enabled !== false,
+            createdAt: expense.created_at,
+            userId: expense.user_id
+          })));
+        }
+      } catch (error) {
+        console.warn('Erro ao carregar despesas:', error);
       }
 
       // Load work routine
@@ -739,82 +749,117 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWorkItems(prev => prev.filter(item => item.id !== id));
   };
 
-  // Monthly cost functions
+  // Monthly cost functions - melhorar tratamento de dados
   const addMonthlyCost = async (costData: Omit<MonthlyCost, 'id' | 'createdAt' | 'userId'>) => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('expenses')
-      .insert({
+    console.log('💰 Tentando salvar custo:', costData);
+
+    try {
+      // Preparar dados para o Supabase - apenas campos que existem na tabela
+      const insertData: any = {
         user_id: user.id,
         description: costData.description,
         category: costData.category,
         value: costData.value,
-        month: costData.month,
-        ...(costData.dueDate && { due_date: costData.dueDate }),
-        ...(costData.isRecurring !== undefined && { is_recurring: costData.isRecurring }),
-        ...(costData.installments && { installments: costData.installments }),
-        ...(costData.currentInstallment && { current_installment: costData.currentInstallment }),
-        ...(costData.parentId && { parent_id: costData.parentId }),
-        ...(costData.notificationEnabled !== undefined && { notification_enabled: costData.notificationEnabled })
-      } as any)
-      .select()
-      .single();
-
-    if (error) throw error;
-    if (data) {
-      const newCost: MonthlyCost = {
-        id: data.id,
-        description: data.description,
-        category: data.category,
-        value: Number(data.value),
-        month: data.month,
-        dueDate: (data as any).due_date || undefined,
-        isRecurring: (data as any).is_recurring || false,
-        installments: (data as any).installments || undefined,
-        currentInstallment: (data as any).current_installment || undefined,
-        parentId: (data as any).parent_id || undefined,
-        notificationEnabled: (data as any).notification_enabled !== false,
-        createdAt: data.created_at,
-        userId: data.user_id
+        month: costData.month
       };
-      setMonthlyCosts(prev => [...prev, newCost]);
-      
-      // Create recurring or installment costs if needed
-      if (newCost.isRecurring) {
-        await createRecurringCosts(newCost);
+
+      // Adicionar campos opcionais apenas se existirem
+      if (costData.dueDate) insertData.due_date = costData.dueDate;
+      if (costData.isRecurring !== undefined) insertData.is_recurring = costData.isRecurring;
+      if (costData.installments) insertData.installments = costData.installments;
+      if (costData.currentInstallment) insertData.current_installment = costData.currentInstallment;
+      if (costData.parentId) insertData.parent_id = costData.parentId;
+      if (costData.notificationEnabled !== undefined) insertData.notification_enabled = costData.notificationEnabled;
+
+      console.log('📊 Dados preparados para inserção:', insertData);
+
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Erro do Supabase:', error);
+        throw error;
       }
-      if (newCost.installments && newCost.installments > 1) {
-        await createInstallmentCosts(newCost);
+
+      if (data) {
+        console.log('✅ Custo salvo com sucesso:', data);
+        
+        const newCost: MonthlyCost = {
+          id: data.id,
+          description: data.description,
+          category: data.category,
+          value: Number(data.value),
+          month: data.month,
+          dueDate: (data as any).due_date || undefined,
+          isRecurring: (data as any).is_recurring || false,
+          installments: (data as any).installments || undefined,
+          currentInstallment: (data as any).current_installment || undefined,
+          parentId: (data as any).parent_id || undefined,
+          notificationEnabled: (data as any).notification_enabled !== false,
+          createdAt: data.created_at,
+          userId: data.user_id
+        };
+        
+        setMonthlyCosts(prev => [...prev, newCost]);
+        
+        // Create recurring or installment costs if needed
+        if (newCost.isRecurring) {
+          await createRecurringCosts(newCost);
+        }
+        if (newCost.installments && newCost.installments > 1) {
+          await createInstallmentCosts(newCost);
+        }
       }
+    } catch (error) {
+      console.error('❌ Erro ao adicionar custo mensal:', error);
+      throw error;
     }
   };
 
   const updateMonthlyCost = async (id: string, updates: Partial<MonthlyCost>) => {
-    const updateData: any = {
-      description: updates.description,
-      category: updates.category,
-      value: updates.value,
-      month: updates.month
-    };
+    console.log('📝 Tentando atualizar custo:', id, updates);
 
-    // Only include new fields if they exist in the updates
-    if (updates.dueDate !== undefined) updateData.due_date = updates.dueDate;
-    if (updates.isRecurring !== undefined) updateData.is_recurring = updates.isRecurring;
-    if (updates.installments !== undefined) updateData.installments = updates.installments;
-    if (updates.currentInstallment !== undefined) updateData.current_installment = updates.currentInstallment;
-    if (updates.parentId !== undefined) updateData.parent_id = updates.parentId;
-    if (updates.notificationEnabled !== undefined) updateData.notification_enabled = updates.notificationEnabled;
+    try {
+      const updateData: any = {
+        description: updates.description,
+        category: updates.category,
+        value: updates.value,
+        month: updates.month
+      };
 
-    const { error } = await supabase
-      .from('expenses')
-      .update(updateData)
-      .eq('id', id);
+      // Only include new fields if they exist in the updates
+      if (updates.dueDate !== undefined) updateData.due_date = updates.dueDate;
+      if (updates.isRecurring !== undefined) updateData.is_recurring = updates.isRecurring;
+      if (updates.installments !== undefined) updateData.installments = updates.installments;
+      if (updates.currentInstallment !== undefined) updateData.current_installment = updates.currentInstallment;
+      if (updates.parentId !== undefined) updateData.parent_id = updates.parentId;
+      if (updates.notificationEnabled !== undefined) updateData.notification_enabled = updates.notificationEnabled;
 
-    if (error) throw error;
-    setMonthlyCosts(prev => prev.map(cost => 
-      cost.id === id ? { ...cost, ...updates } : cost
-    ));
+      console.log('📊 Dados de atualização:', updateData);
+
+      const { error } = await supabase
+        .from('expenses')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) {
+        console.error('❌ Erro ao atualizar no Supabase:', error);
+        throw error;
+      }
+
+      console.log('✅ Custo atualizado com sucesso');
+      setMonthlyCosts(prev => prev.map(cost => 
+        cost.id === id ? { ...cost, ...updates } : cost
+      ));
+    } catch (error) {
+      console.error('❌ Erro ao atualizar custo mensal:', error);
+      throw error;
+    }
   };
 
   const deleteMonthlyCost = async (id: string) => {
