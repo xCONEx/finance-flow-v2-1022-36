@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -43,7 +42,6 @@ import { supabase } from '@/integrations/supabase/client';
 interface Company {
   id: string;
   name: string;
-  description?: string;
   owner_uid: string;
   owner_email: string;
   owner_name?: string;
@@ -107,7 +105,6 @@ const CompanyManagement = () => {
         .select(`
           id,
           name,
-          description,
           owner_uid,
           status,
           created_at,
@@ -151,7 +148,6 @@ const CompanyManagement = () => {
         return {
           id: agency.id,
           name: agency.name,
-          description: agency.description || '',
           owner_uid: agency.owner_uid,
           owner_email: owner?.email || 'Email não encontrado',
           owner_name: owner?.name || owner?.email || 'N/A',
