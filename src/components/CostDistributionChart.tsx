@@ -10,7 +10,7 @@ const CostDistributionChart = () => {
 
   const costsByCategory = monthlyCosts.reduce((acc, cost) => {
     const category = cost.category || 'Outros';
-    acc[category] = (acc[category] || 0) + cost.amount;
+    acc[category] = (acc[category] || 0) + cost.value;
     return acc;
   }, {} as Record<string, number>);
 
