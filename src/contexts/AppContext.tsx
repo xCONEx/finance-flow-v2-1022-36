@@ -819,26 +819,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       console.log('✅ Custo inserido com sucesso:', data);
 
-      // Agendar notificação se habilitada - converter para MonthlyCost
-      if ((data as any).notification_enabled && (data as any).due_date) {
+      // Converter para MonthlyCost para uso nas funções
+      const monthlyCostData: MonthlyCost = {
+        id: data.id,
+        description: data.description,
+        category: data.category,
+        value: Number(data.value),
+        month: data.month,
+        dueDate: (data as any).due_date,
+        isRecurring: (data as any).is_recurring || false,
+        installments: (data as any).installments,
+        currentInstallment: (data as any).current_installment,
+        parentId: (data as any).parent_id,
+        notificationEnabled: (data as any).notification_enabled !== false,
+        createdAt: data.created_at,
+        userId: data.user_id
+      };
+
+      // Agendar notificação se habilitada
+      if (monthlyCostData.notificationEnabled && monthlyCostData.dueDate) {
         try {
-          const monthlyCostForNotification: MonthlyCost = {
-            id: data.id,
-            description: data.description,
-            category: data.category,
-            value: Number(data.value),
-            month: data.month,
-            dueDate: (data as any).due_date,
-            isRecurring: (data as any).is_recurring || false,
-            installments: (data as any).installments,
-            currentInstallment: (data as any).current_installment,
-            parentId: (data as any).parent_id,
-            notificationEnabled: (data as any).notification_enabled !== false,
-            createdAt: data.created_at,
-            userId: data.user_id
-          };
-          
-          await scheduleNotification(monthlyCostForNotification);
+          await scheduleNotification(monthlyCostData);
           console.log('🔔 Notificação agendada para:', data.description);
         } catch (notificationError) {
           console.error('❌ Erro ao agendar notificação:', notificationError);
@@ -847,7 +848,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Processar parcelas se existirem
       if (costData.installments && costData.installments > 1) {
-        await createInstallments(data, costData.installments);
+        await createInstallments(monthlyCostData, costData.installments);
       }
 
       await loadMonthlyCosts();
