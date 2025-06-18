@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -68,12 +69,13 @@ const CompanyManagement = () => {
   // Invite collaborator dialog
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
-  // Load companies usando owner_uid conforme schema
+  // Load companies usando owner_uid conforme schema correto
   const loadCompanies = async () => {
     try {
       setLoading(true);
       console.log('🏢 Carregando empresas...');
       
+      // CORREÇÃO: Usar owner_uid em vez de owner_id conforme schema real
       const { data: agencies, error: agenciesError } = await supabase
         .from('agencies')
         .select(`
@@ -92,6 +94,7 @@ const CompanyManagement = () => {
 
       console.log('🏢 Agências encontradas:', agencies?.length || 0);
 
+      // Buscar dados dos owners
       const ownerIds = [...new Set(agencies?.map(a => a.owner_uid) || [])];
       console.log('👥 Buscando owners:', ownerIds.length);
       
@@ -104,6 +107,7 @@ const CompanyManagement = () => {
         console.error('❌ Erro ao carregar perfis:', profilesError);
       }
 
+      // Buscar contagem de colaboradores
       const { data: collaborators, error: collabError } = await supabase
         .from('agency_collaborators')
         .select('agency_id, id');
@@ -112,6 +116,7 @@ const CompanyManagement = () => {
         console.error('❌ Erro ao carregar colaboradores:', collabError);
       }
 
+      // Processar dados das empresas
       const companiesData = agencies?.map(agency => {
         const owner = profiles?.find(p => p.id === agency.owner_uid);
         const collabCount = collaborators?.filter(c => c.agency_id === agency.id).length || 0;
@@ -169,8 +174,6 @@ const CompanyManagement = () => {
         variant: 'destructive'
       });
       setUsers([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -254,7 +257,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name: name.trim(),
-          owner_uid: owner.id,
+          owner_uid: owner.id, // CORREÇÃO: usar owner_uid
           status: 'active'
         })
         .select()
@@ -312,7 +315,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name: name.trim(),
-          owner_uid: owner.id,
+          owner_uid: owner.id, // CORREÇÃO: usar owner_uid
           updated_at: new Date().toISOString()
         })
         .eq('id', editingCompany.id);
