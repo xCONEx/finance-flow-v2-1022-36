@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,12 +21,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-// Interface alinhada com o schema real
+// Interface alinhada com o schema real da base de dados
 interface Agency {
   id: string;
   name: string;
   description?: string;
-  owner_id: string;
+  owner_uid: string; // Usar owner_uid conforme o schema atual
   status: string;
   created_at: string;
   updated_at: string;
@@ -61,11 +62,11 @@ const CompanyDashboard = () => {
     try {
       console.log('🏢 Carregando agências do usuário...');
       
-      // Buscar agências onde o usuário é owner usando owner_id
+      // Buscar agências onde o usuário é owner usando owner_uid
       const { data, error } = await supabase
         .from('agencies')
         .select('*')
-        .eq('owner_id', user.id);
+        .eq('owner_uid', user.id);
 
       if (error) {
         console.error('❌ Erro ao carregar agências:', error);
