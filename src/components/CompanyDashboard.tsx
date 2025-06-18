@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +22,6 @@ import { supabase } from '@/integrations/supabase/client';
 interface Agency {
   id: string;
   name: string;
-  description?: string;
   owner_id: string;
   status: string;
   created_at: string;
@@ -62,7 +60,7 @@ const CompanyDashboard = () => {
       
       const { data, error } = await supabase
         .from('agencies')
-        .select('id, name, description, owner_id, status, created_at, updated_at')
+        .select('id, name, owner_id, status, created_at, updated_at')
         .eq('owner_id', user.id);
 
       if (error) {
