@@ -19,11 +19,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-// Let's use a more flexible interface that matches the actual database
+// Interface corrigida para usar owner_id
 interface Agency {
   id: string;
   name: string;
-  [key: string]: any; // Allow any other properties
+  owner_id: string; // Usar owner_id (padrão correto)
+  status: string;
+  created_at: string;
+  updated_at: string;
+  description?: string;
+  [key: string]: any;
 }
 
 interface Collaborator {
@@ -56,29 +61,23 @@ const CompanyDashboard = () => {
     try {
       console.log('🏢 Carregando agências do usuário...');
       
-      // First, let's try to get all columns to see what's available
+      // Buscar agências onde o usuário é owner usando owner_id
       const { data, error } = await supabase
         .from('agencies')
-        .select('*');
+        .select('*')
+        .eq('owner_id', user.id); // Usar owner_id (padrão correto)
 
       if (error) {
         console.error('❌ Erro ao carregar agências:', error);
         throw error;
       }
 
-      console.log('✅ Estrutura da tabela agencies:', data?.[0] || 'Nenhum dado encontrado');
-
-      // Filter by user on the client side using the correct column name
-      const userOwnedAgencies = data?.filter(agency => 
-        agency.owner_id === user.id
-      ) || [];
-
-      console.log('✅ Agências do usuário:', userOwnedAgencies.length);
-      setUserAgencies(userOwnedAgencies);
+      console.log('✅ Agências do usuário:', data?.length || 0);
+      setUserAgencies(data || []);
       
       // Selecionar primeira agência automaticamente
-      if (userOwnedAgencies.length > 0 && !selectedAgency) {
-        setSelectedAgency(userOwnedAgencies[0]);
+      if (data && data.length > 0 && !selectedAgency) {
+        setSelectedAgency(data[0]);
       }
       
     } catch (error: any) {
@@ -103,7 +102,7 @@ const CompanyDashboard = () => {
           user_id,
           agency_id,
           role,
-          added_at
+          joined_at
         `)
         .eq('agency_id', agencyId);
 
@@ -128,6 +127,7 @@ const CompanyDashboard = () => {
           const profile = profiles?.find(p => p.id === collab.user_id);
           return {
             ...collab,
+            added_at: collab.joined_at, // Usar joined_at da tabela
             user_email: profile?.email || 'Email não encontrado',
             user_name: profile?.name || profile?.email || 'N/A'
           };
@@ -204,7 +204,7 @@ const CompanyDashboard = () => {
           agency_id: selectedAgency.id,
           user_id: profiles.id,
           role: 'editor',
-          added_by: user?.id
+          invited_by: user?.id
         });
 
       if (error) {
