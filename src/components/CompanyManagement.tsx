@@ -210,7 +210,7 @@ const CompanyManagement = () => {
           user_id,
           role,
           added_at,
-          profiles:user_id (
+          profiles!agency_collaborators_user_id_fkey (
             email,
             name
           )
