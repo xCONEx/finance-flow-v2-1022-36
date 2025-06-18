@@ -44,9 +44,10 @@ interface Company {
   id: string;
   name: string;
   description?: string;
-  owner_id: string;
+  owner_uid: string;
   owner_email: string;
   owner_name?: string;
+  status: string;
   created_at: string;
   collaborators_count: number;
 }
@@ -95,7 +96,7 @@ const CompanyManagement = () => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
 
-  // Load companies usando owner_id corretamente
+  // Load companies usando owner_uid conforme schema
   const loadCompanies = async () => {
     try {
       setLoading(true);
@@ -106,7 +107,8 @@ const CompanyManagement = () => {
         .select(`
           id,
           name,
-          owner_id,
+          description,
+          owner_uid,
           status,
           created_at,
           updated_at
@@ -119,8 +121,8 @@ const CompanyManagement = () => {
 
       console.log('🏢 Agências encontradas:', agencies?.length || 0);
 
-      // Buscar dados dos proprietários
-      const ownerIds = [...new Set(agencies?.map(a => a.owner_id) || [])];
+      // Buscar dados dos proprietários usando owner_uid
+      const ownerIds = [...new Set(agencies?.map(a => a.owner_uid) || [])];
       console.log('👥 Buscando owners:', ownerIds.length);
       
       const { data: profiles, error: profilesError } = await supabase
@@ -143,16 +145,17 @@ const CompanyManagement = () => {
 
       // Combinar dados
       const companiesData = agencies?.map(agency => {
-        const owner = profiles?.find(p => p.id === agency.owner_id);
+        const owner = profiles?.find(p => p.id === agency.owner_uid);
         const collabCount = collaborators?.filter(c => c.agency_id === agency.id).length || 0;
 
         return {
           id: agency.id,
           name: agency.name,
-          description: '', // Campo vazio já que não existe
-          owner_id: agency.owner_id,
+          description: agency.description || '',
+          owner_uid: agency.owner_uid,
           owner_email: owner?.email || 'Email não encontrado',
           owner_name: owner?.name || owner?.email || 'N/A',
+          status: agency.status,
           created_at: agency.created_at,
           collaborators_count: collabCount
         };
@@ -204,7 +207,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Load collaborators for a company - FIX the join syntax
+  // Load collaborators for a company
   const loadCollaborators = async (companyId: string) => {
     try {
       setLoadingCollaborators(true);
@@ -293,7 +296,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Create company diretamente na tabela
+  // Create company usando owner_uid
   const handleCreateCompany = async () => {
     if (!newCompanyName.trim() || !selectedOwnerEmail) {
       toast({
@@ -324,7 +327,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name: newCompanyName.trim(),
-          owner_id: owner.id,
+          owner_uid: owner.id,
           status: 'active'
         })
         .select()
@@ -335,7 +338,7 @@ const CompanyManagement = () => {
         throw error;
       }
 
-      console.log('✅ Empresa criada (trigger vai sincronizar perfil):', data);
+      console.log('✅ Empresa criada:', data);
 
       toast({
         title: 'Sucesso',
@@ -346,11 +349,8 @@ const CompanyManagement = () => {
       setNewCompanyName('');
       setSelectedOwnerEmail('');
       
-      // Aguardar um pouco para o trigger executar
-      setTimeout(() => {
-        loadCompanies();
-        loadUsers();
-      }, 500);
+      loadCompanies();
+      loadUsers();
     } catch (error: any) {
       console.error('❌ Erro ao criar empresa:', error);
       toast({
@@ -361,7 +361,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Edit company diretamente na tabela
+  // Edit company usando owner_uid
   const handleEditCompany = async () => {
     if (!editingCompany || !editCompanyName.trim() || !editOwnerEmail) {
       toast({
@@ -389,7 +389,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name: editCompanyName.trim(),
-          owner_id: owner.id,
+          owner_uid: owner.id,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingCompany.id);
@@ -399,7 +399,7 @@ const CompanyManagement = () => {
         throw error;
       }
 
-      console.log('✅ Empresa atualizada (trigger vai sincronizar perfil)');
+      console.log('✅ Empresa atualizada');
 
       toast({
         title: 'Sucesso',
@@ -420,7 +420,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Delete company diretamente na tabela
+  // Delete company
   const handleDeleteCompany = async (companyId: string) => {
     if (!confirm('Tem certeza que deseja excluir esta empresa? Esta ação não pode ser desfeita.')) {
       return;
@@ -428,13 +428,6 @@ const CompanyManagement = () => {
 
     try {
       console.log('🗑️ Excluindo empresa:', companyId);
-
-      // Buscar owner antes de deletar
-      const { data: agency } = await supabase
-        .from('agencies')
-        .select('owner_id')
-        .eq('id', companyId)
-        .single();
 
       const { error } = await supabase
         .from('agencies')
@@ -446,7 +439,7 @@ const CompanyManagement = () => {
         throw error;
       }
 
-      console.log('✅ Empresa excluída (trigger vai sincronizar perfil)');
+      console.log('✅ Empresa excluída');
 
       toast({
         title: 'Sucesso',
@@ -465,7 +458,7 @@ const CompanyManagement = () => {
     }
   };
 
-  // Invite collaborator usando apenas agency_collaborators
+  // Invite collaborator
   const handleInviteCollaborator = async () => {
     if (!selectedCompany || !inviteEmail.trim()) {
       toast({
@@ -528,7 +521,7 @@ const CompanyManagement = () => {
         throw new Error('Usuário não autenticado');
       }
 
-      // Adicionar como colaborador diretamente - trigger vai sincronizar perfil
+      // Adicionar como colaborador
       const { error } = await supabase
         .from('agency_collaborators')
         .insert({
@@ -543,7 +536,7 @@ const CompanyManagement = () => {
         throw error;
       }
 
-      console.log('✅ Colaborador adicionado (trigger vai sincronizar perfil)');
+      console.log('✅ Colaborador adicionado');
 
       toast({
         title: 'Sucesso',
@@ -553,13 +546,10 @@ const CompanyManagement = () => {
       setIsInviteDialogOpen(false);
       setInviteEmail('');
       
-      // Aguardar um pouco para o trigger executar
-      setTimeout(() => {
-        loadCompanies();
-        if (isCollaboratorsDialogOpen) {
-          loadCollaborators(selectedCompany.id);
-        }
-      }, 500);
+      loadCompanies();
+      if (isCollaboratorsDialogOpen) {
+        loadCollaborators(selectedCompany.id);
+      }
     } catch (error: any) {
       console.error('❌ Erro ao adicionar colaborador:', error);
       toast({
