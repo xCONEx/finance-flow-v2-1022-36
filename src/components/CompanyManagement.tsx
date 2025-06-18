@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -43,7 +44,7 @@ interface Company {
   id: string;
   name: string;
   description?: string;
-  owner_uid: string;
+  owner_id: string;
   owner_email: string;
   owner_name?: string;
   created_at: string;
@@ -94,7 +95,7 @@ const CompanyManagement = () => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
 
-  // Load companies usando owner_uid corretamente
+  // Load companies usando owner_id corretamente
   const loadCompanies = async () => {
     try {
       setLoading(true);
@@ -105,7 +106,7 @@ const CompanyManagement = () => {
         .select(`
           id,
           name,
-          owner_uid,
+          owner_id,
           status,
           created_at,
           updated_at
@@ -119,7 +120,7 @@ const CompanyManagement = () => {
       console.log('🏢 Agências encontradas:', agencies?.length || 0);
 
       // Buscar dados dos proprietários
-      const ownerIds = [...new Set(agencies?.map(a => a.owner_uid) || [])];
+      const ownerIds = [...new Set(agencies?.map(a => a.owner_id) || [])];
       console.log('👥 Buscando owners:', ownerIds.length);
       
       const { data: profiles, error: profilesError } = await supabase
@@ -142,14 +143,14 @@ const CompanyManagement = () => {
 
       // Combinar dados
       const companiesData = agencies?.map(agency => {
-        const owner = profiles?.find(p => p.id === agency.owner_uid);
+        const owner = profiles?.find(p => p.id === agency.owner_id);
         const collabCount = collaborators?.filter(c => c.agency_id === agency.id).length || 0;
 
         return {
           id: agency.id,
           name: agency.name,
           description: '', // Campo vazio já que não existe
-          owner_uid: agency.owner_uid,
+          owner_id: agency.owner_id,
           owner_email: owner?.email || 'Email não encontrado',
           owner_name: owner?.name || owner?.email || 'N/A',
           created_at: agency.created_at,
@@ -323,7 +324,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name: newCompanyName.trim(),
-          owner_uid: owner.id,
+          owner_id: owner.id,
           status: 'active'
         })
         .select()
@@ -388,7 +389,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name: editCompanyName.trim(),
-          owner_uid: owner.id,
+          owner_id: owner.id,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingCompany.id);
@@ -431,7 +432,7 @@ const CompanyManagement = () => {
       // Buscar owner antes de deletar
       const { data: agency } = await supabase
         .from('agencies')
-        .select('owner_uid')
+        .select('owner_id')
         .eq('id', companyId)
         .single();
 
