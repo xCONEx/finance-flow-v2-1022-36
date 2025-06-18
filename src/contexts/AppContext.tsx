@@ -176,7 +176,7 @@ export const useApp = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, user } = useSupabaseAuth();
-  const { scheduleNotification, sendImmediateNotification } = useNotifications();
+  const { scheduleNotification, sendImmediateNotification } = useNotifications(monthlyCosts);
   const [currentView, setCurrentView] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
