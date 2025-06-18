@@ -23,9 +23,11 @@ import { supabase } from '@/integrations/supabase/client';
 interface Agency {
   id: string;
   name: string;
-  owner_uid: string;
+  description?: string;
+  owner_id: string;
   status: string;
   created_at: string;
+  updated_at: string;
 }
 
 interface Collaborator {
@@ -60,8 +62,8 @@ const CompanyDashboard = () => {
       
       const { data, error } = await supabase
         .from('agencies')
-        .select('*')
-        .eq('owner_uid', user.id);
+        .select('id, name, description, owner_id, status, created_at, updated_at')
+        .eq('owner_id', user.id);
 
       if (error) {
         console.error('❌ Erro ao carregar agências:', error);
@@ -525,26 +527,30 @@ const CompanyDashboard = () => {
                             <User className="h-4 w-4 text-gray-600" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{collaborator.user_email}</p>
-                            {collaborator.user_name && collaborator.user_name !== 'N/A' && (
-                              <p className="text-sm text-gray-600 truncate">{collaborator.user_name}</p>
-                            )}
-                            <p className="text-xs text-gray-400">
-                              Adicionado em {new Date(collaborator.added_at).toLocaleDateString('pt-BR')}
+                            <p className="font-medium text-gray-900 truncate">
+                              {collaborator.user_name}
                             </p>
+                            <p className="text-sm text-gray-600 truncate">
+                              {collaborator.user_email}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {collaborator.role}
+                              </Badge>
+                              <span className="text-xs text-gray-500">
+                                Desde {new Date(collaborator.added_at).toLocaleDateString('pt-BR')}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge variant="outline" className="hidden sm:inline-flex">{collaborator.role}</Badge>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleRemoveCollaborator(collaborator.id, collaborator.user_email || '')}
-                            className="p-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRemoveCollaborator(collaborator.id, collaborator.user_email || '')}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     ))}
                   </div>
