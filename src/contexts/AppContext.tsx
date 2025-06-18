@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +21,12 @@ interface MonthlyCost {
   category: string;
   value: number;
   month: string;
+  dueDate?: string;
+  isRecurring: boolean;
+  installments?: number;
+  currentInstallment?: number;
+  parentId?: string;
+  notificationEnabled: boolean;
   createdAt: string;
   userId: string;
   companyId?: string;
@@ -96,6 +101,17 @@ interface DeliveryLink {
   isPublic: boolean;
 }
 
+interface CostNotification {
+  id: string;
+  costId: string;
+  userId: string;
+  title: string;
+  message: string;
+  dueDate: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 interface AppContextType {
   currentView: string;
   setCurrentView: (view: string) => void;
@@ -109,6 +125,7 @@ interface AppContextType {
   workItems: WorkItem[];
   workRoutine: WorkRoutine | null;
   projects: VideoProject[];
+  notifications: CostNotification[];
   loading: boolean;
   
   // Task functions
@@ -139,6 +156,11 @@ interface AppContextType {
   addProject: (project: VideoProject) => Promise<void>;
   updateProject: (id: string, updates: Partial<VideoProject>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+
+  // Notification functions
+  getUpcomingNotifications: () => CostNotification[];
+  markNotificationAsRead: (id: string) => Promise<void>;
+  checkDueNotifications: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -163,6 +185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [workRoutine, setWorkRoutine] = useState<WorkRoutine | null>(null);
   const [projects, setProjects] = useState<VideoProject[]>([]);
+  const [notifications, setNotifications] = useState<CostNotification[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -175,6 +198,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (isAuthenticated && user) {
       loadAllData();
+      // Check for due notifications every minute
+      const interval = setInterval(checkDueNotifications, 60000);
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated, user]);
 
@@ -339,7 +365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })));
       }
 
-      // Load expenses (monthly costs)
+      // Load expenses (monthly costs) with new fields
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('*')
@@ -352,6 +378,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           category: expense.category,
           value: Number(expense.value),
           month: expense.month,
+          dueDate: expense.due_date,
+          isRecurring: expense.is_recurring || false,
+          installments: expense.installments,
+          currentInstallment: expense.current_installment,
+          parentId: expense.parent_id,
+          notificationEnabled: expense.notification_enabled || false,
           createdAt: expense.created_at,
           userId: expense.user_id
         })));
@@ -360,11 +392,131 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Load work routine
       await refreshWorkRoutine();
 
+      // Load notifications
+      await loadNotifications();
+
+      // Check for due notifications
+      checkDueNotifications();
+
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadNotifications = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: notificationsData } = await supabase
+        .from('cost_notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+        .order('due_date', { ascending: true });
+      
+      if (notificationsData) {
+        setNotifications(notificationsData.map(notification => ({
+          id: notification.id,
+          costId: notification.cost_id,
+          userId: notification.user_id,
+          title: notification.title,
+          message: notification.message,
+          dueDate: notification.due_date,
+          isRead: notification.is_read,
+          createdAt: notification.created_at
+        })));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar notificações:', error);
+    }
+  };
+
+  const checkDueNotifications = () => {
+    const today = new Date();
+    const threeDaysFromNow = new Date(today.getTime() + (3 * 24 * 60 * 60 * 1000));
+    
+    monthlyCosts.forEach(cost => {
+      if (cost.dueDate && cost.notificationEnabled) {
+        const dueDate = new Date(cost.dueDate);
+        const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === 3) {
+          toast({
+            title: "Vencimento em 3 dias",
+            description: `${cost.description} vence em ${cost.dueDate}`,
+          });
+        } else if (daysDiff === 0) {
+          toast({
+            title: "Vencimento hoje",
+            description: `${cost.description} vence hoje!`,
+            variant: "destructive"
+          });
+        }
+      }
+    });
+  };
+
+  const createRecurringCosts = async (baseCost: MonthlyCost) => {
+    if (!baseCost.isRecurring) return;
+    
+    const nextMonth = new Date(baseCost.month + '-01');
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    
+    const nextMonthStr = nextMonth.toISOString().slice(0, 7);
+    
+    // Check if next month's cost already exists
+    const existingCost = monthlyCosts.find(cost => 
+      cost.parentId === baseCost.id && cost.month === nextMonthStr
+    );
+    
+    if (!existingCost) {
+      const nextCost = {
+        ...baseCost,
+        id: `${baseCost.id}_${nextMonthStr}`,
+        month: nextMonthStr,
+        parentId: baseCost.id,
+        dueDate: baseCost.dueDate ? baseCost.dueDate.replace(baseCost.month, nextMonthStr) : undefined
+      };
+      
+      await addMonthlyCost(nextCost);
+    }
+  };
+
+  const createInstallmentCosts = async (baseCost: MonthlyCost) => {
+    if (!baseCost.installments || baseCost.installments <= 1) return;
+    
+    const installmentValue = baseCost.value / baseCost.installments;
+    
+    for (let i = 1; i < baseCost.installments; i++) {
+      const installmentDate = new Date(baseCost.month + '-01');
+      installmentDate.setMonth(installmentDate.getMonth() + i);
+      
+      const installmentMonth = installmentDate.toISOString().slice(0, 7);
+      
+      const installmentCost: Omit<MonthlyCost, 'id' | 'createdAt' | 'userId'> = {
+        description: `${baseCost.description} (${i + 1}/${baseCost.installments})`,
+        category: baseCost.category,
+        value: installmentValue,
+        month: installmentMonth,
+        dueDate: baseCost.dueDate ? baseCost.dueDate.replace(baseCost.month, installmentMonth) : undefined,
+        isRecurring: false,
+        installments: baseCost.installments,
+        currentInstallment: i + 1,
+        parentId: baseCost.id,
+        notificationEnabled: baseCost.notificationEnabled
+      };
+      
+      await addMonthlyCost(installmentCost);
+    }
+    
+    // Update the base cost to show it's the first installment
+    await updateMonthlyCost(baseCost.id, {
+      description: `${baseCost.description} (1/${baseCost.installments})`,
+      value: installmentValue,
+      currentInstallment: 1
+    });
   };
 
   // Refresh functions
@@ -592,7 +744,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         description: costData.description,
         category: costData.category,
         value: costData.value,
-        month: costData.month
+        month: costData.month,
+        due_date: costData.dueDate,
+        is_recurring: costData.isRecurring,
+        installments: costData.installments,
+        current_installment: costData.currentInstallment,
+        parent_id: costData.parentId,
+        notification_enabled: costData.notificationEnabled
       })
       .select()
       .single();
@@ -605,10 +763,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         category: data.category,
         value: Number(data.value),
         month: data.month,
+        dueDate: data.due_date,
+        isRecurring: data.is_recurring || false,
+        installments: data.installments,
+        currentInstallment: data.current_installment,
+        parentId: data.parent_id,
+        notificationEnabled: data.notification_enabled || false,
         createdAt: data.created_at,
         userId: data.user_id
       };
       setMonthlyCosts(prev => [...prev, newCost]);
+      
+      // Create recurring or installment costs if needed
+      if (newCost.isRecurring) {
+        await createRecurringCosts(newCost);
+      }
+      if (newCost.installments && newCost.installments > 1) {
+        await createInstallmentCosts(newCost);
+      }
     }
   };
 
@@ -619,7 +791,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         description: updates.description,
         category: updates.category,
         value: updates.value,
-        month: updates.month
+        month: updates.month,
+        due_date: updates.dueDate,
+        is_recurring: updates.isRecurring,
+        installments: updates.installments,
+        current_installment: updates.currentInstallment,
+        parent_id: updates.parentId,
+        notification_enabled: updates.notificationEnabled
       })
       .eq('id', id);
 
@@ -637,6 +815,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) throw error;
     setMonthlyCosts(prev => prev.filter(cost => cost.id !== id));
+    
+    // Also delete related installments or recurring costs
+    const relatedCosts = monthlyCosts.filter(cost => cost.parentId === id);
+    for (const relatedCost of relatedCosts) {
+      await deleteMonthlyCost(relatedCost.id);
+    }
+  };
+
+  const getUpcomingNotifications = (): CostNotification[] => {
+    return notifications.filter(notification => !notification.isRead);
+  };
+
+  const markNotificationAsRead = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('cost_notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+
+      if (error) throw error;
+      setNotifications(prev => prev.map(notification => 
+        notification.id === id ? { ...notification, isRead: true } : notification
+      ));
+    } catch (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+    }
   };
 
   // Task functions (mock for now - would need tasks table)
@@ -696,6 +900,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       workItems,
       workRoutine,
       projects,
+      notifications,
       loading,
       
       // Functions
@@ -716,6 +921,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addProject,
       updateProject,
       deleteProject,
+      getUpcomingNotifications,
+      markNotificationAsRead,
+      checkDueNotifications,
     }}>
       {children}
     </AppContext.Provider>
