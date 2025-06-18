@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface Agency {
   id: string;
   name: string;
-  owner_id: string;
+  owner_uid: string;
   status: string;
   created_at: string;
   updated_at: string;
@@ -60,8 +60,8 @@ const CompanyDashboard = () => {
       
       const { data, error } = await supabase
         .from('agencies')
-        .select('id, name, owner_id, status, created_at, updated_at')
-        .eq('owner_id', user.id);
+        .select('id, name, owner_uid, status, created_at, updated_at')
+        .eq('owner_uid', user.id);
 
       if (error) {
         console.error('❌ Erro ao carregar agências:', error);
