@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,16 +20,15 @@ import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
-// Interface corrigida para usar owner_id
+// Interface alinhada com o schema real
 interface Agency {
   id: string;
   name: string;
-  owner_id: string; // Usar owner_id (padrão correto)
+  description?: string;
+  owner_id: string;
   status: string;
   created_at: string;
   updated_at: string;
-  description?: string;
-  [key: string]: any;
 }
 
 interface Collaborator {
@@ -65,7 +65,7 @@ const CompanyDashboard = () => {
       const { data, error } = await supabase
         .from('agencies')
         .select('*')
-        .eq('owner_id', user.id); // Usar owner_id (padrão correto)
+        .eq('owner_id', user.id);
 
       if (error) {
         console.error('❌ Erro ao carregar agências:', error);
@@ -102,7 +102,7 @@ const CompanyDashboard = () => {
           user_id,
           agency_id,
           role,
-          joined_at
+          added_at
         `)
         .eq('agency_id', agencyId);
 
@@ -127,7 +127,6 @@ const CompanyDashboard = () => {
           const profile = profiles?.find(p => p.id === collab.user_id);
           return {
             ...collab,
-            added_at: collab.joined_at, // Usar joined_at da tabela
             user_email: profile?.email || 'Email não encontrado',
             user_name: profile?.name || profile?.email || 'N/A'
           };
@@ -204,7 +203,7 @@ const CompanyDashboard = () => {
           agency_id: selectedAgency.id,
           user_id: profiles.id,
           role: 'editor',
-          invited_by: user?.id
+          added_by: user?.id
         });
 
       if (error) {
