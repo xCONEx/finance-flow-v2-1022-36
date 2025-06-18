@@ -93,8 +93,8 @@ const MonthlyCosts = () => {
     const selectedMonthNumber = selectedMonth.split('-')[1];
 
     const filtered = monthlyCosts.filter(cost => {
-      const costYear = new Date(cost.due_date).getFullYear().toString();
-      const costMonth = (new Date(cost.due_date).getMonth() + 1).toString().padStart(2, '0');
+      const costYear = new Date(cost.dueDate).getFullYear().toString();
+      const costMonth = (new Date(cost.dueDate).getMonth() + 1).toString().padStart(2, '0');
       return costYear === selectedYear && costMonth === selectedMonthNumber;
     });
 
@@ -206,7 +206,7 @@ const MonthlyCosts = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CostDistributionChart costs={filteredCosts} />
+            <CostDistributionChart />
           </CardContent>
         </Card>
       )}
@@ -233,7 +233,7 @@ const MonthlyCosts = () => {
                   </div>
                   <p className="text-sm text-gray-600">Categoria: {cost.category}</p>
                   <p className="text-xs text-gray-500">
-                    Vencimento: {new Date(cost.due_date).toLocaleDateString('pt-BR')}
+                    Vencimento: {new Date(cost.dueDate).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
