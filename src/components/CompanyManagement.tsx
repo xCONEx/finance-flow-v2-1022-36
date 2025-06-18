@@ -380,6 +380,46 @@ const CompanyManagement = () => {
     }
   };
 
+  // Remove collaborator
+  const handleRemoveCollaborator = async (collaboratorId: string, email: string) => {
+    if (!confirm(`Tem certeza que deseja remover o colaborador ${email}?`)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Removendo colaborador:', collaboratorId);
+
+      const { error } = await supabase
+        .from('agency_collaborators')
+        .delete()
+        .eq('id', collaboratorId);
+
+      if (error) {
+        console.error('❌ Erro ao remover colaborador:', error);
+        throw error;
+      }
+
+      console.log('✅ Colaborador removido');
+
+      toast({
+        title: 'Sucesso',
+        description: `Colaborador ${email} removido com sucesso`
+      });
+
+      loadCompanies();
+      if (isCollaboratorsDialogOpen && selectedCompany) {
+        loadCollaborators(selectedCompany.id);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao remover colaborador:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao remover colaborador: ' + (error?.message || 'Erro desconhecido'),
+        variant: 'destructive'
+      });
+    }
+  };
+
   // Invite collaborator
   const handleInviteCollaborator = async (email: string) => {
     if (!selectedCompany || !email.trim()) {
