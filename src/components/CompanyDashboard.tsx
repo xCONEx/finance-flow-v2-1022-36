@@ -70,7 +70,7 @@ const CompanyDashboard = () => {
 
       // Filter by user on the client side using the correct column name
       const userOwnedAgencies = data?.filter(agency => 
-        agency.owner_uid === user.id
+        agency.owner_id === user.id
       ) || [];
 
       console.log('✅ Agências do usuário:', userOwnedAgencies.length);
