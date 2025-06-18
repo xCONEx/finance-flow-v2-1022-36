@@ -819,10 +819,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       console.log('✅ Custo inserido com sucesso:', data);
 
-      // Agendar notificação se habilitada
+      // Agendar notificação se habilitada - converter para MonthlyCost
       if ((data as any).notification_enabled && (data as any).due_date) {
         try {
-          await scheduleNotification(data);
+          const monthlyCostForNotification: MonthlyCost = {
+            id: data.id,
+            description: data.description,
+            category: data.category,
+            value: Number(data.value),
+            month: data.month,
+            dueDate: (data as any).due_date,
+            isRecurring: (data as any).is_recurring || false,
+            installments: (data as any).installments,
+            currentInstallment: (data as any).current_installment,
+            parentId: (data as any).parent_id,
+            notificationEnabled: (data as any).notification_enabled !== false,
+            createdAt: data.created_at,
+            userId: data.user_id
+          };
+          
+          await scheduleNotification(monthlyCostForNotification);
           console.log('🔔 Notificação agendada para:', data.description);
         } catch (notificationError) {
           console.error('❌ Erro ao agendar notificação:', notificationError);
@@ -878,10 +894,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       console.log('✅ Custo atualizado:', data);
 
-      // Reagendar notificação se necessário
+      // Reagendar notificação se necessário - converter para MonthlyCost
       if ((data as any).notification_enabled && (data as any).due_date) {
         try {
-          await scheduleNotification(data);
+          const monthlyCostForNotification: MonthlyCost = {
+            id: data.id,
+            description: data.description,
+            category: data.category,
+            value: Number(data.value),
+            month: data.month,
+            dueDate: (data as any).due_date,
+            isRecurring: (data as any).is_recurring || false,
+            installments: (data as any).installments,
+            currentInstallment: (data as any).current_installment,
+            parentId: (data as any).parent_id,
+            notificationEnabled: (data as any).notification_enabled !== false,
+            createdAt: data.created_at,
+            userId: data.user_id
+          };
+          
+          await scheduleNotification(monthlyCostForNotification);
           console.log('🔔 Notificação reagendada para:', data.description);
         } catch (notificationError) {
           console.error('❌ Erro ao reagendar notificação:', notificationError);
