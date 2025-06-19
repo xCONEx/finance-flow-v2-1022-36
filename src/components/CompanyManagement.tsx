@@ -15,7 +15,7 @@ import CollaboratorsDialog from './company/CollaboratorsDialog';
 interface Company {
   id: string;
   name: string;
-  owner_id: string; // CORRIGIDO: usar owner_id conforme schema
+  owner_uid: string; // CORRIGIDO: usar owner_uid conforme tipos TypeScript gerados
   owner_email: string;
   owner_name?: string;
   status: string;
@@ -161,7 +161,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_id: selectedUser.id, // CORRIGIDO: usar owner_id conforme schema
+          owner_uid: selectedUser.id, // CORRIGIDO: usar owner_uid conforme tipos TypeScript
           status: 'active'
         })
         .select()
@@ -214,7 +214,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_id: selectedUser.id // CORRIGIDO: usar owner_id conforme schema
+          owner_uid: selectedUser.id // CORRIGIDO: usar owner_uid conforme tipos TypeScript
         })
         .eq('id', selectedCompany.id);
 
