@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import CollaboratorsDialog from './company/CollaboratorsDialog';
 interface Company {
   id: string;
   name: string;
-  owner_id: string; // Mantemos como owner_id para compatibilidade com as funções RPC
+  owner_id: string;
   owner_email: string;
   owner_name?: string;
   status: string;
@@ -59,7 +60,6 @@ const CompanyManagement = () => {
       
       console.log('🔍 Buscando empresas via RPC get_all_companies_admin...');
       
-      // Usar a função RPC correta com tipo any para evitar problemas de tipo
       const { data: companiesData, error: companiesError } = await (supabase as any)
         .rpc('get_all_companies_admin');
 
@@ -76,7 +76,6 @@ const CompanyManagement = () => {
       console.log('✅ Empresas carregadas com sucesso:', companiesData?.length || 0);
       console.log('📊 Dados das empresas:', companiesData);
 
-      // Os dados já vêm enriquecidos da função RPC
       if (companiesData && Array.isArray(companiesData) && companiesData.length > 0) {
         setCompanies(companiesData as Company[]);
       } else {
@@ -120,8 +119,16 @@ const CompanyManagement = () => {
       setLoadingCollaborators(true);
       console.log('🔍 Buscando colaboradores para empresa:', companyId);
       
-      const { data, error } = await (supabase as any)
-        .rpc('get_company_collaborators_admin', { company_id: companyId });
+      const { data, error } = await supabase
+        .from('agency_collaborators')
+        .select(`
+          id,
+          user_id,
+          role,
+          added_at,
+          profiles!inner(email, name)
+        `)
+        .eq('agency_id', companyId);
 
       if (error) {
         console.error('❌ Erro ao buscar colaboradores:', error);
@@ -133,8 +140,17 @@ const CompanyManagement = () => {
         return;
       }
 
-      console.log('✅ Colaboradores carregados:', data?.length || 0);
-      setCollaborators(data || []);
+      const collaboratorsData = (data || []).map((item: any) => ({
+        id: item.id,
+        user_id: item.user_id,
+        email: item.profiles.email,
+        name: item.profiles.name,
+        role: item.role,
+        added_at: item.added_at
+      }));
+
+      console.log('✅ Colaboradores carregados:', collaboratorsData.length);
+      setCollaborators(collaboratorsData);
     } catch (error) {
       console.error('❌ Erro inesperado ao buscar colaboradores:', error);
     } finally {
@@ -156,12 +172,11 @@ const CompanyManagement = () => {
         return;
       }
 
-      // Usar owner_uid conforme o tipo gerado automaticamente
       const { data, error } = await supabase
         .from('agencies')
         .insert({
           name,
-          owner_uid: selectedUser.id, // Usar owner_uid conforme schema atual
+          owner_id: selectedUser.id,
           status: 'active'
         })
         .select()
@@ -210,12 +225,11 @@ const CompanyManagement = () => {
         return;
       }
 
-      // Usar owner_uid conforme o tipo gerado automaticamente
       const { error } = await supabase
         .from('agencies')
         .update({
           name,
-          owner_uid: selectedUser.id // Usar owner_uid conforme schema atual
+          owner_id: selectedUser.id
         })
         .eq('id', selectedCompany.id);
 
@@ -293,8 +307,8 @@ const CompanyManagement = () => {
       console.log('📨 Convidando colaborador:', { companyId: selectedCompany.id, email });
       
       const { data, error } = await (supabase as any)
-        .rpc('invite_collaborator_admin', {
-          company_id: selectedCompany.id,
+        .rpc('invite_collaborator', {
+          target_agency_id: selectedCompany.id,
           collaborator_email: email
         });
 
@@ -336,10 +350,10 @@ const CompanyManagement = () => {
     try {
       console.log('🗑️ Removendo colaborador:', collaboratorId);
       
-      const { data, error } = await (supabase as any)
-        .rpc('remove_collaborator_admin', {
-          collaborator_id: collaboratorId
-        });
+      const { error } = await supabase
+        .from('agency_collaborators')
+        .delete()
+        .eq('id', collaboratorId);
 
       if (error) {
         console.error('❌ Erro ao remover colaborador:', error);

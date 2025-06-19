@@ -81,7 +81,7 @@ const ContextSelector = () => {
           )}
         </DropdownMenuItem>
         
-        {/* Lista de agências - Só mostra se houver agências */}
+        {/* Lista de agências */}
         {agencies.length > 0 && (
           <>
             <DropdownMenuSeparator />
@@ -106,7 +106,7 @@ const ContextSelector = () => {
           </>
         )}
 
-        {/* Convites pendentes - Só mostra se houver convites */}
+        {/* Convites pendentes */}
         {pendingInvitations.length > 0 && (
           <>
             <DropdownMenuSeparator />
