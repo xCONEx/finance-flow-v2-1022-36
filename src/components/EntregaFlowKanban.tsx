@@ -41,6 +41,7 @@ interface KanbanProject {
   created_at: string;
   updated_at: string;
   user_id?: string;
+  agency_id?: string;
 }
 
 interface Column {
@@ -49,6 +50,15 @@ interface Column {
   color: string;
   icon: React.ComponentType<any>;
   count: number;
+}
+
+interface KanbanBoardData {
+  id: string;
+  agency_id: string | null;
+  board_data: any;
+  created_at: string;
+  updated_at: string;
+  user_id?: string;
 }
 
 const EntregaFlowKanban = () => {
@@ -140,7 +150,7 @@ const EntregaFlowKanban = () => {
 
       // Filtrar por contexto
       if (currentContext === 'individual') {
-        query = query.eq('user_id', user.id);
+        query = query.eq('user_id', user.id).is('agency_id', null);
       } else {
         // Contexto de agência - buscar projetos da agência
         query = query.eq('agency_id', currentContext.id);
@@ -158,19 +168,23 @@ const EntregaFlowKanban = () => {
         return;
       }
 
-      const projectsData = (data || []).map(item => ({
-        id: item.id,
-        title: item.title,
-        client: item.client,
-        due_date: item.due_date,
-        priority: item.priority as "alta" | "media" | "baixa",
-        status: item.status as "filmado" | "edicao" | "revisao" | "entregue",
-        description: item.description || '',
-        links: Array.isArray(item.links) ? item.links : [],
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        user_id: item.user_id
-      }));
+      const projectsData = (data || []).map((item: KanbanBoardData) => {
+        const boardData = item.board_data as any;
+        return {
+          id: item.id,
+          title: boardData?.title || '',
+          client: boardData?.client || '',
+          due_date: boardData?.due_date,
+          priority: (boardData?.priority as "alta" | "media" | "baixa") || 'media',
+          status: (boardData?.status as "filmado" | "edicao" | "revisao" | "entregue") || 'filmado',
+          description: boardData?.description || '',
+          links: Array.isArray(boardData?.links) ? boardData.links : [],
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          user_id: boardData?.user_id,
+          agency_id: item.agency_id
+        };
+      });
 
       setProjects(projectsData);
       console.log('✅ Projetos carregados:', projectsData.length);
@@ -188,11 +202,22 @@ const EntregaFlowKanban = () => {
 
   const saveProject = async (projectData: Partial<KanbanProject>, isUpdate = false) => {
     try {
+      const boardData = {
+        title: projectData.title,
+        client: projectData.client,
+        due_date: projectData.due_date,
+        priority: projectData.priority,
+        status: projectData.status,
+        description: projectData.description,
+        links: projectData.links || [],
+        user_id: user?.id
+      };
+
       if (isUpdate && selectedProject) {
         const { error } = await supabase
           .from('kanban_boards')
           .update({
-            ...projectData,
+            board_data: boardData,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedProject.id);
@@ -201,9 +226,9 @@ const EntregaFlowKanban = () => {
       } else {
         // Criar novo projeto
         const newProjectData = {
-          ...projectData,
-          user_id: user?.id,
-          ...(currentContext !== 'individual' && { agency_id: currentContext.id }),
+          board_data: boardData,
+          user_id: currentContext === 'individual' ? user?.id : null,
+          agency_id: currentContext !== 'individual' ? currentContext.id : null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -232,10 +257,24 @@ const EntregaFlowKanban = () => {
       if (!projectToUpdate) return;
 
       try {
+        const updatedBoardData = {
+          ...projectToUpdate,
+          status: destination.droppableId,
+        };
+
         await supabase
           .from('kanban_boards')
           .update({
-            status: destination.droppableId,
+            board_data: {
+              title: updatedBoardData.title,
+              client: updatedBoardData.client,
+              due_date: updatedBoardData.due_date,
+              priority: updatedBoardData.priority,
+              status: updatedBoardData.status,
+              description: updatedBoardData.description,
+              links: updatedBoardData.links,
+              user_id: updatedBoardData.user_id
+            },
             updated_at: new Date().toISOString()
           })
           .eq('id', result.draggableId);
@@ -684,8 +723,8 @@ const EntregaFlowKanban = () => {
               <label className="text-sm font-medium mb-2 block">Data de Entrega</label>
               <Input
                 type="date"
-                value={newProject.dueDate || ''}
-                onChange={(e) => setNewProject({...newProject, dueDate: e.target.value})}
+                value={newProject.due_date || ''}
+                onChange={(e) => setNewProject({...newProject, due_date: e.target.value})}
               />
             </div>
 
@@ -790,8 +829,8 @@ const EntregaFlowKanban = () => {
                   <Input
                     type="date"
                     className="w-full"
-                    value={editData.dueDate || ''}
-                    onChange={(e) => setEditData({ ...editData, dueDate: e.target.value })}
+                    value={editData.due_date || ''}
+                    onChange={(e) => setEditData({ ...editData, due_date: e.target.value })}
                   />
                 </div>
                 <div>
