@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -175,7 +176,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_uid: selectedUser.id,
+          owner_id: selectedUser.id,
           status: 'active'
         })
         .select()
@@ -228,7 +229,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_uid: selectedUser.id
+          owner_id: selectedUser.id
         })
         .eq('id', selectedCompany.id);
 

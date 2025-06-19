@@ -52,11 +52,11 @@ interface Column {
   count: number;
 }
 
-// Simplified interface to avoid deep type instantiation
-interface SimpleBoardData {
+// Simple interface to avoid type recursion
+interface BoardDataType {
   id: string;
   agency_id: string | null;
-  board_data: any; // Using any to avoid deep recursion
+  board_data: Record<string, any>;
   created_at: string;
   updated_at: string;
   user_id?: string;
@@ -169,17 +169,17 @@ const EntregaFlowKanban = () => {
         return;
       }
 
-      // Simplified data mapping to avoid deep type recursion
-      const projectsData: KanbanProject[] = (data || []).map((item: SimpleBoardData) => {
+      // Mapear dados de forma simples
+      const projectsData: KanbanProject[] = (data || []).map((item: BoardDataType) => {
         const boardData = item.board_data || {};
         return {
           id: item.id,
-          title: boardData.title || '',
-          client: boardData.client || '',
-          due_date: boardData.due_date,
-          priority: boardData.priority || 'media',
-          status: boardData.status || 'filmado',
-          description: boardData.description || '',
+          title: String(boardData.title || ''),
+          client: String(boardData.client || ''),
+          due_date: boardData.due_date || undefined,
+          priority: (boardData.priority as "alta" | "media" | "baixa") || 'media',
+          status: (boardData.status as "filmado" | "edicao" | "revisao" | "entregue") || 'filmado',
+          description: String(boardData.description || ''),
           links: Array.isArray(boardData.links) ? boardData.links : [],
           created_at: item.created_at,
           updated_at: item.updated_at,
