@@ -14,7 +14,7 @@ import CollaboratorsDialog from './company/CollaboratorsDialog';
 interface Company {
   id: string;
   name: string;
-  owner_id: string; // CORRIGIDO: usar owner_id conforme schema SQL
+  owner_id: string; // Mantemos como owner_id para compatibilidade com as funções RPC
   owner_email: string;
   owner_name?: string;
   status: string;
@@ -156,11 +156,12 @@ const CompanyManagement = () => {
         return;
       }
 
+      // Usar owner_uid conforme o tipo gerado automaticamente
       const { data, error } = await supabase
         .from('agencies')
         .insert({
           name,
-          owner_id: selectedUser.id, // CORRIGIDO: usar owner_id conforme schema SQL
+          owner_uid: selectedUser.id, // Usar owner_uid conforme schema atual
           status: 'active'
         })
         .select()
@@ -209,11 +210,12 @@ const CompanyManagement = () => {
         return;
       }
 
+      // Usar owner_uid conforme o tipo gerado automaticamente
       const { error } = await supabase
         .from('agencies')
         .update({
           name,
-          owner_id: selectedUser.id // CORRIGIDO: usar owner_id conforme schema SQL
+          owner_uid: selectedUser.id // Usar owner_uid conforme schema atual
         })
         .eq('id', selectedCompany.id);
 
