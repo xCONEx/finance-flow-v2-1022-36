@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -160,7 +161,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_id: selectedUser.id, // Use owner_id para corresponder ao schema SQL
+          owner_uid: selectedUser.id, // Use owner_uid para corresponder aos tipos TypeScript
           status: 'active'
         })
         .select()
@@ -213,7 +214,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_id: selectedUser.id // Use owner_id para corresponder ao schema SQL
+          owner_uid: selectedUser.id // Use owner_uid para corresponder aos tipos TypeScript
         })
         .eq('id', selectedCompany.id);
 
