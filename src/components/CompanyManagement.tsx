@@ -64,8 +64,8 @@ const CompanyManagement = () => {
       
       console.log('🔍 Buscando empresas via RPC get_all_companies_admin...');
       
-      // Usar a função RPC correta
-      const { data: companiesData, error: companiesError } = await supabase
+      // Usar a função RPC correta com tipo any para evitar problemas de tipo
+      const { data: companiesData, error: companiesError } = await (supabase as any)
         .rpc('get_all_companies_admin');
 
       if (companiesError) {
@@ -82,8 +82,8 @@ const CompanyManagement = () => {
       console.log('📊 Dados das empresas:', companiesData);
 
       // Os dados já vêm enriquecidos da função RPC
-      if (companiesData && companiesData.length > 0) {
-        setCompanies(companiesData);
+      if (companiesData && Array.isArray(companiesData) && companiesData.length > 0) {
+        setCompanies(companiesData as Company[]);
       } else {
         setCompanies([]);
       }
@@ -125,7 +125,7 @@ const CompanyManagement = () => {
       setLoadingCollaborators(true);
       console.log('🔍 Buscando colaboradores para empresa:', companyId);
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .rpc('get_company_collaborators_admin', { company_id: companyId });
 
       if (error) {
@@ -165,7 +165,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_id: selectedUser.id,
+          owner_uid: selectedUser.id,
           status: 'active'
         })
         .select()
@@ -218,7 +218,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_id: selectedUser.id
+          owner_uid: selectedUser.id
         })
         .eq('id', selectedCompany.id);
 
@@ -295,7 +295,7 @@ const CompanyManagement = () => {
     try {
       console.log('📨 Convidando colaborador:', { companyId: selectedCompany.id, email });
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .rpc('invite_collaborator_admin', {
           company_id: selectedCompany.id,
           collaborator_email: email
@@ -339,7 +339,7 @@ const CompanyManagement = () => {
     try {
       console.log('🗑️ Removendo colaborador:', collaboratorId);
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .rpc('remove_collaborator_admin', {
           collaborator_id: collaboratorId
         });
@@ -488,14 +488,14 @@ const CompanyManagement = () => {
 
       {/* Dialogs */}
       <CreateCompanyDialog
-        isOpen={showCreateDialog}
+        open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         users={users}
         onCreateCompany={handleCreateCompany}
       />
 
       <EditCompanyDialog
-        isOpen={showEditDialog}
+        open={showEditDialog}
         onOpenChange={setShowEditDialog}
         company={selectedCompany}
         users={users}
