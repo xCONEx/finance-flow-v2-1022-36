@@ -1,11 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Building2, Users, Plus, Edit, Trash2, UserPlus, Loader2 } from 'lucide-react';
+import { Building2, Users, Plus, Loader2 } from 'lucide-react';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { supabase } from '../integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -18,7 +15,7 @@ import CollaboratorsDialog from './company/CollaboratorsDialog';
 interface Company {
   id: string;
   name: string;
-  owner_uid: string; // CORRIGIDO: voltando para owner_uid conforme schema do banco
+  owner_id: string; // CORRIGIDO: usar owner_id conforme schema
   owner_email: string;
   owner_name?: string;
   status: string;
@@ -164,7 +161,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_uid: selectedUser.id, // CORRIGIDO: usar owner_uid conforme schema
+          owner_id: selectedUser.id, // CORRIGIDO: usar owner_id conforme schema
           status: 'active'
         })
         .select()
@@ -217,7 +214,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_uid: selectedUser.id // CORRIGIDO: usar owner_uid conforme schema
+          owner_id: selectedUser.id // CORRIGIDO: usar owner_id conforme schema
         })
         .eq('id', selectedCompany.id);
 

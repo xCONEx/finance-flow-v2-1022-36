@@ -13,7 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 interface Company {
   id: string;
   name: string;
-  owner_uid: string; // CORRIGIDO: usar owner_uid conforme schema
+  owner_id: string; // CORRIGIDO: usar owner_id conforme schema
   owner_email: string;
   owner_name?: string;
   status: string;
