@@ -19,7 +19,7 @@ import CollaboratorsDialog from './company/CollaboratorsDialog';
 interface Company {
   id: string;
   name: string;
-  owner_uid: string;
+  owner_id: string; // CORRIGIDO: usar owner_id
   owner_email: string;
   owner_name?: string;
   status: string;
@@ -165,7 +165,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_uid: selectedUser.id,
+          owner_id: selectedUser.id, // CORRIGIDO: usar owner_id
           status: 'active'
         })
         .select()
@@ -218,7 +218,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_uid: selectedUser.id
+          owner_id: selectedUser.id // CORRIGIDO: usar owner_id
         })
         .eq('id', selectedCompany.id);
 
