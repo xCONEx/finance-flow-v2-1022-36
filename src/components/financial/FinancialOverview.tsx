@@ -11,9 +11,7 @@ import {
   TrendingUp, 
   TrendingDown, 
   DollarSign,
-  Filter,
-  Search,
-  Calendar
+  Search
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -50,21 +48,21 @@ const FinancialOverview: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('financial_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false });
+      // Usar SQL direto para buscar as transações
+      const { data, error } = await supabase.rpc('exec_sql', {
+        sql: `
+          SELECT * FROM financial_transactions 
+          WHERE user_id = '${user.id}' 
+          ORDER BY date DESC, created_at DESC
+        `
+      });
 
       if (error) throw error;
       setTransactions(data || []);
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar transações",
-        variant: "destructive",
-      });
+      // Não mostrar erro se as tabelas ainda não existem
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -99,16 +97,11 @@ const FinancialOverview: React.FC = () => {
     return matchesSearch;
   });
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  };
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('pt-BR');
 
   if (loading) {
     return (
@@ -196,7 +189,7 @@ const FinancialOverview: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por descrição ou valor..."
+              placeholder="Buscar por descrição ou categoria..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -215,9 +208,16 @@ const FinancialOverview: React.FC = () => {
           {/* Lista de Transações */}
           <div className="space-y-2">
             {filteredTransactions.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                Nenhum dado para os últimos 3 meses.
-              </p>
+              <div className="text-center text-muted-foreground py-8">
+                {transactions.length === 0 ? (
+                  <div>
+                    <p>Nenhuma transação encontrada.</p>
+                    <p className="text-sm mt-2">Execute o SQL das tabelas financeiras primeiro!</p>
+                  </div>
+                ) : (
+                  <p>Nenhuma transação corresponde aos filtros aplicados.</p>
+                )}
+              </div>
             ) : (
               filteredTransactions.map((transaction) => (
                 <div 

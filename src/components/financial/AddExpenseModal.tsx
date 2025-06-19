@@ -74,20 +74,20 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSu
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('financial_transactions')
-        .insert([{
-          user_id: user.id,
-          type: 'expense',
-          description: formData.description,
-          amount: parseFloat(formData.amount),
-          category: formData.category,
-          payment_method: formData.payment_method,
-          supplier: formData.supplier || null,
-          date: formData.date,
-          time: formData.time || null,
-          is_paid: formData.is_paid
-        }]);
+      // Inserir diretamente usando SQL raw devido às tabelas customizadas
+      const { error } = await supabase.rpc('exec_sql', {
+        sql: `
+          INSERT INTO financial_transactions (
+            user_id, type, description, amount, category, payment_method, 
+            supplier, date, time, is_paid
+          ) VALUES (
+            '${user.id}', 'expense', '${formData.description}', 
+            ${parseFloat(formData.amount) || 0}, '${formData.category}', 
+            '${formData.payment_method}', ${formData.supplier ? `'${formData.supplier}'` : 'NULL'}, 
+            '${formData.date}', ${formData.time ? `'${formData.time}'` : 'NULL'}, ${formData.is_paid}
+          )
+        `
+      });
 
       if (error) throw error;
 
@@ -112,7 +112,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSu
       console.error('Erro ao adicionar saída:', error);
       toast({
         title: "Erro",
-        description: "Erro ao adicionar saída",
+        description: "Erro ao adicionar saída. Certifique-se de que executou o SQL das tabelas financeiras.",
         variant: "destructive",
       });
     } finally {
@@ -149,15 +149,6 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSu
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
             />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="partial_payment"
-              checked={false}
-              disabled
-            />
-            <Label htmlFor="partial_payment">Pagamento Parcial / Agendar Restante</Label>
           </div>
 
           <div className="space-y-2">

@@ -67,21 +67,21 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('financial_transactions')
-        .insert([{
-          user_id: user.id,
-          type: 'income',
-          description: formData.description,
-          amount: parseFloat(formData.amount),
-          category: formData.category,
-          payment_method: formData.payment_method,
-          client_name: formData.client_name || null,
-          date: formData.date,
-          time: formData.time || null,
-          work_id: formData.work_id || null,
-          is_paid: formData.is_paid
-        }]);
+      // Inserir diretamente usando SQL raw devido às tabelas customizadas
+      const { error } = await supabase.rpc('exec_sql', {
+        sql: `
+          INSERT INTO financial_transactions (
+            user_id, type, description, amount, category, payment_method, 
+            client_name, date, time, work_id, is_paid
+          ) VALUES (
+            '${user.id}', 'income', '${formData.description}', 
+            ${parseFloat(formData.amount) || 0}, '${formData.category}', 
+            '${formData.payment_method}', ${formData.client_name ? `'${formData.client_name}'` : 'NULL'}, 
+            '${formData.date}', ${formData.time ? `'${formData.time}'` : 'NULL'}, 
+            ${formData.work_id ? `'${formData.work_id}'` : 'NULL'}, ${formData.is_paid}
+          )
+        `
+      });
 
       if (error) throw error;
 
@@ -107,7 +107,7 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
       console.error('Erro ao adicionar entrada:', error);
       toast({
         title: "Erro",
-        description: "Erro ao adicionar entrada",
+        description: "Erro ao adicionar entrada. Certifique-se de que executou o SQL das tabelas financeiras.",
         variant: "destructive",
       });
     } finally {
@@ -209,14 +209,12 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
 
           <div className="space-y-2">
             <Label htmlFor="client_name">Cliente Vinculado (Opcional)</Label>
-            <Select value={formData.client_name} onValueChange={(value) => setFormData({ ...formData, client_name: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Nenhum cliente</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input
+              id="client_name"
+              placeholder="Nome do cliente"
+              value={formData.client_name}
+              onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
