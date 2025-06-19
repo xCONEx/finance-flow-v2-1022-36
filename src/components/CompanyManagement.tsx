@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,7 @@ import CollaboratorsDialog from './company/CollaboratorsDialog';
 interface Company {
   id: string;
   name: string;
-  owner_id: string; // CORRIGIDO: usar owner_id
+  owner_uid: string; // CORRIGIDO: voltando para owner_uid conforme schema do banco
   owner_email: string;
   owner_name?: string;
   status: string;
@@ -165,7 +164,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_id: selectedUser.id, // CORRIGIDO: usar owner_id
+          owner_uid: selectedUser.id, // CORRIGIDO: usar owner_uid conforme schema
           status: 'active'
         })
         .select()
@@ -218,7 +217,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_id: selectedUser.id // CORRIGIDO: usar owner_id
+          owner_uid: selectedUser.id // CORRIGIDO: usar owner_uid conforme schema
         })
         .eq('id', selectedCompany.id);
 
@@ -468,11 +467,11 @@ const CompanyManagement = () => {
 
           <CompanyTable
             companies={companies}
-            onEdit={(company) => {
+            onEditCompany={(company) => {
               setSelectedCompany(company);
               setShowEditDialog(true);
             }}
-            onDelete={handleDeleteCompany}
+            onDeleteCompany={handleDeleteCompany}
             onInviteCollaborator={(company) => {
               setSelectedCompany(company);
               setShowInviteDialog(true);
@@ -488,14 +487,14 @@ const CompanyManagement = () => {
 
       {/* Dialogs */}
       <CreateCompanyDialog
-        open={showCreateDialog}
+        isOpen={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         users={users}
         onCreateCompany={handleCreateCompany}
       />
 
       <EditCompanyDialog
-        open={showEditDialog}
+        isOpen={showEditDialog}
         onOpenChange={setShowEditDialog}
         company={selectedCompany}
         users={users}
