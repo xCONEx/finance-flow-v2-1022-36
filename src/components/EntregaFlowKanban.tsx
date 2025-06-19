@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAgency } from '../contexts/AgencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -22,27 +21,11 @@ import {
   CheckCircle,
   Edit,
   Scissors,
-  Eye,
-  Users
+  Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
-import { supabase } from '../integrations/supabase/client';
-
-interface KanbanProject {
-  id: string;
-  title: string;
-  client: string;
-  due_date?: string;
-  priority: "alta" | "media" | "baixa";
-  status: "filmado" | "edicao" | "revisao" | "entregue";
-  description: string;
-  links: string[];
-  created_at: string;
-  updated_at: string;
-  user_id?: string;
-  agency_id?: string;
-}
+import { supabaseKanbanService, KanbanProject } from '../services/supabaseKanbanService';
 
 interface Column {
   id: string;
@@ -52,28 +35,17 @@ interface Column {
   count: number;
 }
 
-// Simple interface to avoid type recursion
-interface BoardDataType {
-  id: string;
-  agency_id: string | null;
-  board_data: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  user_id?: string;
-}
-
 const EntregaFlowKanban = () => {
   const [projects, setProjects] = useState<KanbanProject[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const { isDark, currentTheme, toggleDarkMode, changeTheme } = useTheme();
-  const { currentContext } = useAgency();
   const [selectedProject, setSelectedProject] = useState<KanbanProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [newProject, setNewProject] = useState<Partial<KanbanProject>>({
     title: '',
     client: '',
-    due_date: '',
+    dueDate: '',
     priority: 'media',
     status: 'filmado',
     description: '',
@@ -118,8 +90,8 @@ const EntregaFlowKanban = () => {
   const activeProjects = projects.filter(p => p.status !== 'entregue').length;
   const completedProjects = projects.filter(p => p.status === 'entregue').length;
   const urgentDeadlines = projects.filter(p => {
-    if (!p.due_date) return false;
-    const deadline = new Date(p.due_date);
+    if (!p.dueDate) return false;
+    const deadline = new Date(p.dueDate);
     const today = new Date();
     const diffTime = deadline.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -127,74 +99,29 @@ const EntregaFlowKanban = () => {
   }).length;
 
   const overdueProject = projects.find(p => {
-    if (!p.due_date || p.status === 'entregue') return false;
-    const deadline = new Date(p.due_date);
+    if (!p.dueDate || p.status === 'entregue') return false;
+    const deadline = new Date(p.dueDate);
     const today = new Date();
     return deadline < today;
   });
 
   useEffect(() => {
     loadProjects();
-  }, [user, currentContext]);
+  }, [user]);
 
   const loadProjects = async () => {
     if (!user?.id) return;
     
     try {
       setLoading(true);
-      console.log('📦 Carregando projetos para contexto:', currentContext);
-      
-      let query = supabase
-        .from('kanban_boards')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      // Filtrar por contexto
-      if (currentContext === 'individual') {
-        query = query.eq('user_id', user.id).is('agency_id', null);
-      } else {
-        // Contexto de agência - buscar projetos da agência
-        query = query.eq('agency_id', currentContext.id);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Erro ao carregar projetos:', error);
-        toast({
-          title: "Erro",
-          description: "Erro ao carregar projetos",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Mapear dados de forma simples
-      const projectsData: KanbanProject[] = (data || []).map((item: BoardDataType) => {
-        const boardData = item.board_data || {};
-        return {
-          id: item.id,
-          title: String(boardData.title || ''),
-          client: String(boardData.client || ''),
-          due_date: boardData.due_date || undefined,
-          priority: (boardData.priority as "alta" | "media" | "baixa") || 'media',
-          status: (boardData.status as "filmado" | "edicao" | "revisao" | "entregue") || 'filmado',
-          description: String(boardData.description || ''),
-          links: Array.isArray(boardData.links) ? boardData.links : [],
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          user_id: boardData.user_id,
-          agency_id: item.agency_id || undefined
-        };
-      });
-
-      setProjects(projectsData);
-      console.log('✅ Projetos carregados:', projectsData.length);
+      const loadedProjects = await supabaseKanbanService.loadBoard(user.id);
+      setProjects(loadedProjects);
+      console.log('📦 Projetos carregados:', loadedProjects.length);
     } catch (error) {
-      console.error('❌ Erro inesperado ao carregar projetos:', error);
+      console.error('❌ Erro ao carregar projetos:', error);
       toast({
         title: "Erro",
-        description: "Erro inesperado ao carregar projetos",
+        description: "Erro ao carregar projetos",
         variant: "destructive"
       });
     } finally {
@@ -202,50 +129,19 @@ const EntregaFlowKanban = () => {
     }
   };
 
-  const saveProject = async (projectData: Partial<KanbanProject>, isUpdate = false) => {
+  const saveProjects = async (projectsData: KanbanProject[]) => {
+    if (!user?.id) return;
+    
     try {
-      const boardData = {
-        title: projectData.title,
-        client: projectData.client,
-        due_date: projectData.due_date,
-        priority: projectData.priority,
-        status: projectData.status,
-        description: projectData.description,
-        links: projectData.links || [],
-        user_id: user?.id
-      };
-
-      if (isUpdate && selectedProject) {
-        const { error } = await supabase
-          .from('kanban_boards')
-          .update({
-            board_data: boardData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedProject.id);
-
-        if (error) throw error;
-      } else {
-        // Criar novo projeto
-        const newProjectData = {
-          board_data: boardData,
-          user_id: currentContext === 'individual' ? user?.id : null,
-          agency_id: currentContext !== 'individual' ? currentContext.id : null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        const { error } = await supabase
-          .from('kanban_boards')
-          .insert(newProjectData);
-
-        if (error) throw error;
-      }
-
-      await loadProjects();
+      await supabaseKanbanService.saveBoard(user.id, projectsData);
+      localStorage.setItem('entregaFlowProjects', JSON.stringify(projectsData));
     } catch (error) {
-      console.error('❌ Erro ao salvar projeto:', error);
-      throw error;
+      console.error('❌ Erro ao salvar projetos:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar projetos",
+        variant: "destructive"
+      });
     }
   };
 
@@ -255,47 +151,22 @@ const EntregaFlowKanban = () => {
     const { source, destination } = result;
     
     if (source.droppableId !== destination.droppableId) {
-      const projectToUpdate = projects.find(p => p.id === result.draggableId);
-      if (!projectToUpdate) return;
+      const updatedProjects = projects.map(project => 
+        project.id === result.draggableId 
+          ? { ...project, status: destination.droppableId as KanbanProject['status'], updatedAt: new Date().toISOString() }
+          : project
+      );
+      
+      setProjects(updatedProjects);
+      await saveProjects(updatedProjects);
 
-      try {
-        const updatedBoardData = {
-          ...projectToUpdate,
-          status: destination.droppableId,
-        };
-
-        await supabase
-          .from('kanban_boards')
-          .update({
-            board_data: {
-              title: updatedBoardData.title,
-              client: updatedBoardData.client,
-              due_date: updatedBoardData.due_date,
-              priority: updatedBoardData.priority,
-              status: updatedBoardData.status,
-              description: updatedBoardData.description,
-              links: updatedBoardData.links,
-              user_id: updatedBoardData.user_id
-            },
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', result.draggableId);
-
-        await loadProjects();
-
-        const destColumn = columns.find(c => c.id === destination.droppableId);
-        toast({
-          title: "Projeto Movido",
-          description: `"${projectToUpdate.title}" movido para ${destColumn?.title}`
-        });
-      } catch (error) {
-        console.error('❌ Erro ao mover projeto:', error);
-        toast({
-          title: "Erro",
-          description: "Erro ao mover projeto",
-          variant: "destructive"
-        });
-      }
+      const movedProject = projects.find(p => p.id === result.draggableId);
+      const destColumn = columns.find(c => c.id === destination.droppableId);
+      
+      toast({
+        title: "Projeto Movido",
+        description: `"${movedProject?.title}" movido para ${destColumn?.title}`
+      });
     }
   };
 
@@ -311,20 +182,18 @@ const EntregaFlowKanban = () => {
   const handleEditSave = async () => {
     if (!selectedProject || !editData) return;
 
-    try {
-      await saveProject(editData, true);
-      toast({
-        title: "Projeto Atualizado",
-        description: `"${editData.title}" foi salvo com sucesso`
-      });
-      setShowEditModal(false);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar projeto",
-        variant: "destructive"
-      });
-    }
+    const updatedProjects = projects.map(p =>
+      p.id === selectedProject.id ? { ...selectedProject, ...editData, updatedAt: new Date().toISOString() } : p
+    );
+
+    setProjects(updatedProjects);
+    await saveProjects(updatedProjects);
+    toast({
+      title: "Projeto Atualizado",
+      description: `"${editData.title}" foi salvo com sucesso`
+    });
+
+    setShowEditModal(false);
   };
 
   const handleAddProject = async () => {
@@ -337,31 +206,39 @@ const EntregaFlowKanban = () => {
       return;
     }
 
-    try {
-      await saveProject(newProject);
-      
-      setNewProject({
-        title: '',
-        client: '',
-        due_date: '',
-        priority: 'media',
-        status: 'filmado',
-        description: '',
-        links: []
-      });
-      setShowAddModal(false);
+    const project: KanbanProject = {
+      id: `project_${Date.now()}`,
+      title: newProject.title!,
+      client: newProject.client!,
+      dueDate: newProject.dueDate || '',
+      priority: newProject.priority || 'media',
+      status: newProject.status || 'filmado',
+      description: newProject.description || '',
+      links: newProject.links || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      user_id: user?.id || ''
+    };
 
-      toast({
-        title: "Projeto Criado",
-        description: `"${newProject.title}" foi adicionado com sucesso`
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao criar projeto",
-        variant: "destructive"
-      });
-    }
+    const updatedProjects = [...projects, project];
+    setProjects(updatedProjects);
+    await saveProjects(updatedProjects);
+
+    setNewProject({
+      title: '',
+      client: '',
+      dueDate: '',
+      priority: 'media',
+      status: 'filmado',
+      description: '',
+      links: []
+    });
+    setShowAddModal(false);
+
+    toast({
+      title: "Projeto Criado",
+      description: `"${project.title}" foi adicionado com sucesso`
+    });
   };
 
   const priorityLabels: Record<string, string> = {
@@ -380,28 +257,42 @@ const EntregaFlowKanban = () => {
   };
 
   const handleDeleteProject = async (projectId: string) => {
-    try {
-      await supabase
-        .from('kanban_boards')
-        .delete()
-        .eq('id', projectId);
+    const projectToDelete = projects.find(p => p.id === projectId);
+    const updatedProjects = projects.filter(p => p.id !== projectId);
+    
+    setProjects(updatedProjects);
+    await saveProjects(updatedProjects);
+    setSelectedProject(null);
+    setShowEditModal(false);
 
-      await loadProjects();
-      setSelectedProject(null);
-      setShowEditModal(false);
+    toast({
+      title: "Projeto Excluído",
+      description: `"${projectToDelete?.title}" foi excluído com sucesso`
+    });
+  };
 
-      toast({
-        title: "Projeto Excluído",
-        description: "Projeto excluído com sucesso"
-      });
-    } catch (error) {
-      console.error('❌ Erro ao excluir projeto:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao excluir projeto",
-        variant: "destructive"
-      });
-    }
+  const handleAddLink = async () => {
+    if (!selectedProject || !newLink) return;
+
+    const updatedProject = {
+      ...selectedProject,
+      links: [...selectedProject.links, newLink],
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedProjects = projects.map(p => 
+      p.id === selectedProject.id ? updatedProject : p
+    );
+
+    setProjects(updatedProjects);
+    await saveProjects(updatedProjects);
+    setSelectedProject(updatedProject);
+    setNewLink('');
+
+    toast({
+      title: "Link Adicionado",
+      description: "Link de entrega adicionado com sucesso"
+    });
   };
 
   // Helper functions
@@ -437,20 +328,6 @@ const EntregaFlowKanban = () => {
     );
   }
 
-  const getContextIcon = () => {
-    if (currentContext === 'individual') {
-      return <User className="h-5 w-5" />;
-    }
-    return <Users className="h-5 w-5" />;
-  };
-
-  const getContextLabel = () => {
-    if (currentContext === 'individual') {
-      return 'Individual';
-    }
-    return currentContext.name;
-  };
-
   return (
     <div className="space-y-6 pb-20 md:pb-6 overflow-x-hidden px-4">
       {/* Header */}
@@ -461,23 +338,12 @@ const EntregaFlowKanban = () => {
               <Video className="text-white font-bold text-2xl"/>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">Projetos</h1>
-                <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
-                  {getContextIcon()}
-                  <span className="text-sm font-medium">{getContextLabel()}</span>
-                </div>
-              </div>
+              <h1 className="text-2xl font-bold">Projetos</h1>
               <p className="text-sm text-gray-600">Gerenciador de Entregas</p>
             </div>
           </div>
           <h2 className="text-xl font-semibold">Bem-vindo ao EntregaFlow! 🎬</h2>
-          <p className="text-gray-600">
-            {currentContext === 'individual' 
-              ? 'Gerencie seus projetos pessoais' 
-              : `Projetos da empresa ${currentContext.name}`
-            }
-          </p>
+          <p className="text-gray-600">Gerencie seus projetos audiovisuais de forma simples e eficiente</p>
         </div>
 
         <Button 
@@ -631,21 +497,21 @@ const EntregaFlowKanban = () => {
                                       </div>
 
                                       {/* Due Date */}
-                                      {project.due_date && (
+                                      {project.dueDate && (
                                         <div className="flex items-center gap-2">
                                           <Calendar className="h-3 w-3 text-gray-500" />
                                           <span className={`text-xs ${
-                                            isOverdue(project.due_date) ? 'text-red-600 font-medium' : 'text-gray-600'
+                                            isOverdue(project.dueDate) ? 'text-red-600 font-medium' : 'text-gray-600'
                                           }`}>
-                                            {new Date(project.due_date).toLocaleDateString('pt-BR')}
+                                            {new Date(project.dueDate).toLocaleDateString('pt-BR')}
                                           </span>
                                         </div>
                                       )}
 
                                       {/* Overdue Badge */}
-                                      {isOverdue(project.due_date || '') && project.status !== 'entregue' && (
+                                      {isOverdue(project.dueDate) && project.status !== 'entregue' && (
                                         <Badge className="bg-red-500 text-white text-xs">
-                                          {getDaysOverdue(project.due_date || '')} dias atrasado
+                                          {getDaysOverdue(project.dueDate)} dias atrasado
                                         </Badge>
                                       )}
 
@@ -725,8 +591,8 @@ const EntregaFlowKanban = () => {
               <label className="text-sm font-medium mb-2 block">Data de Entrega</label>
               <Input
                 type="date"
-                value={newProject.due_date || ''}
-                onChange={(e) => setNewProject({...newProject, due_date: e.target.value})}
+                value={newProject.dueDate || ''}
+                onChange={(e) => setNewProject({...newProject, dueDate: e.target.value})}
               />
             </div>
 
@@ -831,8 +697,8 @@ const EntregaFlowKanban = () => {
                   <Input
                     type="date"
                     className="w-full"
-                    value={editData.due_date || ''}
-                    onChange={(e) => setEditData({ ...editData, due_date: e.target.value })}
+                    value={editData.dueDate || ''}
+                    onChange={(e) => setEditData({ ...editData, dueDate: e.target.value })}
                   />
                 </div>
                 <div>

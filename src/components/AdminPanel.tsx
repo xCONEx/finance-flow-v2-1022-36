@@ -33,12 +33,14 @@ import {
   Trash2,
   UserMinus,
   Download,
+  User, Building, BarChart, ShieldCheck,
   FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import CompanyManagement from './CompanyManagement';
+
 
 type SubscriptionPlan = 'free' | 'basic' | 'premium' | 'enterprise' | 'enterprise-annual';
 type UserType = 'individual' | 'company_owner' | 'employee' | 'admin';
@@ -403,7 +405,7 @@ Relatório gerado em: ${new Date().toLocaleString('pt-BR')}
   const { freeUsers = 0, premiumUsers = 0, basicUsers = 0, enterpriseUsers = 0, bannedUsers = 0 } = analytics?.userStats || {};
 
   return (
-    <div className="space-y-4 md:space-y-6 p-2 md:p-4">
+    <div className="space-y-4 md:space-y-6 p-2 md:p-4 ">
       <div className="text-center space-y-2">
         <h2 className="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2">
           <Shield className="text-purple-600 h-6 w-6 md:h-8 md:w-8" />
@@ -482,16 +484,32 @@ Relatório gerado em: ${new Date().toLocaleString('pt-BR')}
         </Card>
       </div>
 
-      <Tabs defaultValue="users" className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 gap-1 md:gap-2 w-full">
-          <TabsTrigger value="users" className="text-xs md:text-sm">Usuários</TabsTrigger>
-          <TabsTrigger value="companies" className="text-xs md:text-sm">Empresas</TabsTrigger>
-          <TabsTrigger value="admins" className="text-xs md:text-sm">Administradores</TabsTrigger>
-          <TabsTrigger value="analytics" className="text-xs md:text-sm">Analytics</TabsTrigger>
-        </TabsList>
+<Tabs defaultValue="users" className="space-y-4">
+  <TabsList className="grid grid-cols-4 gap-1 md:gap-2 w-full">
+    <TabsTrigger value="users" className="flex flex-col items-center text-xs md:text-sm">
+      <User className="w-6 h-6 md:hidden" />  {/* Ícone só no mobile */}
+      <span className="hidden md:block">Usuários</span> {/* Texto só no desktop */}
+    </TabsTrigger>
+
+    <TabsTrigger value="companies" className="flex flex-col items-center text-xs md:text-sm">
+      <Building className="w-6 h-6 md:hidden" />
+      <span className="hidden md:block">Empresas</span>
+    </TabsTrigger>
+
+    <TabsTrigger value="admins" className="flex flex-col items-center text-xs md:text-sm">
+      <ShieldCheck className="w-6 h-6 md:hidden" />
+      <span className="hidden md:block">Administradores</span>
+    </TabsTrigger>
+
+    <TabsTrigger value="analytics" className="flex flex-col items-center text-xs md:text-sm">
+      <BarChart className="w-6 h-6 md:hidden" />
+      <span className="hidden md:block">Analytics</span>
+    </TabsTrigger>
+  </TabsList>
+
 
         {/* USERS */}
-        <TabsContent value="users" className="space-y-4">
+        <TabsContent value="users" className="space-y-4 pb-20 md:pb-0">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg md:text-xl">Filtro de Usuários</CardTitle>
@@ -630,12 +648,12 @@ Relatório gerado em: ${new Date().toLocaleString('pt-BR')}
         </TabsContent>
 
         {/* COMPANIES */}
-        <TabsContent value="companies" className="space-y-4">
+        <TabsContent value="companies" className="space-y-4 pb-20 md:pb-0">
           <CompanyManagement />
         </TabsContent>
 
         {/* ADMINS */}
-        <TabsContent value="admins" className="space-y-4">
+        <TabsContent value="admins" className="space-y-4 pb-20 md:pb-0">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg md:text-xl">Gerenciar Administradores</CardTitle>
@@ -675,7 +693,7 @@ Relatório gerado em: ${new Date().toLocaleString('pt-BR')}
           </Card>
         </TabsContent>
 
-        <TabsContent value="analytics" className="space-y-4">
+        <TabsContent value="analytics" className="space-y-4 pb-20 md:pb-0">
           {/* Export buttons */}
           <Card>
             <CardHeader>
@@ -788,6 +806,7 @@ Relatório gerado em: ${new Date().toLocaleString('pt-BR')}
       </Tabs>
     </div>
   );
+
 };
 
 export default AdminPanel;
