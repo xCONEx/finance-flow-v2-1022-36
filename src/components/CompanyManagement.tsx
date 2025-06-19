@@ -160,7 +160,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_id: selectedUser.id, // Use owner_id to match SQL schema
+          owner_id: selectedUser.id, // Use owner_id para corresponder ao schema SQL
           status: 'active'
         })
         .select()
@@ -213,7 +213,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_id: selectedUser.id // Use owner_id to match SQL schema
+          owner_id: selectedUser.id // Use owner_id para corresponder ao schema SQL
         })
         .eq('id', selectedCompany.id);
 
