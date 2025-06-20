@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -29,18 +30,15 @@ const AddReserveGoalModal: React.FC<AddReserveGoalModalProps> = ({ isOpen, onClo
 
     setLoading(true);
     try {
-      // Use direct table insert instead of exec_sql - using expenses table for now
+      // Insert into expenses table with special category for reserve goals
       const { error } = await supabase
         .from('expenses')
         .insert({
           user_id: user.id,
-          type: 'reserve_goal',
-          description: formData.name,
-          amount: parseFloat(formData.target_amount),
-          category: 'Reserve Goal',
-          payment_method: 'N/A',
-          supplier: formData.icon || '🎯',
-          is_paid: false
+          description: `[META] ${formData.name} ${formData.icon || '🎯'}`,
+          value: parseFloat(formData.target_amount) || 0,
+          category: 'Reserva Inteligente',
+          month: new Date().toISOString().slice(0, 7)
         });
 
       if (error) throw error;
