@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -358,22 +359,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error) throw error;
 
-      // Map database fields to MonthlyCost interface
+      // Map database fields to MonthlyCost interface with proper fallbacks
       const costsData: MonthlyCost[] = (data || []).map(item => ({
         id: item.id,
         description: item.description,
         category: item.category,
         value: Number(item.value),
         month: item.month,
-        dueDate: item.due_date,
-        isRecurring: item.is_recurring || false,
-        installments: item.installments,
-        currentInstallment: item.current_installment,
-        parentId: item.parent_id,
-        notificationEnabled: item.notification_enabled !== false,
+        dueDate: (item as any).due_date || undefined,
+        isRecurring: (item as any).is_recurring || false,
+        installments: (item as any).installments || undefined,
+        currentInstallment: (item as any).current_installment || undefined,
+        parentId: (item as any).parent_id || undefined,
+        notificationEnabled: (item as any).notification_enabled !== false,
         createdAt: item.created_at,
         userId: item.user_id,
-        companyId: item.company_id
+        companyId: (item as any).company_id || (item as any).agency_id || undefined
       }));
 
       setMonthlyCosts(costsData);
@@ -1071,3 +1072,4 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 export default AppProvider;
+
