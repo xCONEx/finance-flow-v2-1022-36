@@ -85,8 +85,7 @@ export const PremiumFeatureBlock: React.FC<PremiumFeatureBlockProps> = ({
         <Button 
           className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:opacity-90"
           onClick={() => {
-            // Redirecionar para página de assinaturas
-            window.location.hash = '#/subscription';
+            window.open('https://lpfinanceflow.vercel.app', '_blank');
           }}
         >
           <Crown className="h-4 w-4 mr-2" />
