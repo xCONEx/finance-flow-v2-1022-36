@@ -1,157 +1,214 @@
 
--- Tabelas do Sistema Financeiro para Usuários Individuais
--- Execute este script no SQL Editor do Supabase
+-- Criação das tabelas do sistema financeiro
+-- Executar este script no Supabase SQL Editor
 
--- Tabela para transações financeiras (entradas e saídas) - APENAS PARA USUÁRIOS INDIVIDUAIS
-CREATE TABLE IF NOT EXISTS public.financial_transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
-    description TEXT NOT NULL,
-    amount DECIMAL(10,2) NOT NULL DEFAULT 0,
-    category TEXT NOT NULL,
-    payment_method TEXT NOT NULL,
-    supplier TEXT,
-    client_name TEXT,
-    work_id TEXT,
-    date DATE NOT NULL,
-    time TIME,
-    is_paid BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Tabela para metas de reserva inteligente - APENAS PARA USUÁRIOS INDIVIDUAIS
-CREATE TABLE IF NOT EXISTS public.reserve_goals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    target_amount DECIMAL(10,2) NOT NULL,
-    current_amount DECIMAL(10,2) DEFAULT 0,
-    icon TEXT DEFAULT '🎯',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Tabela para histórico de contribuições para metas de reserva - APENAS PARA USUÁRIOS INDIVIDUAIS
-CREATE TABLE IF NOT EXISTS public.reserve_contributions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    goal_id UUID NOT NULL REFERENCES public.reserve_goals(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    amount DECIMAL(10,2) NOT NULL,
-    description TEXT,
-    date DATE NOT NULL DEFAULT CURRENT_DATE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Habilitar RLS
-ALTER TABLE public.financial_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reserve_goals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reserve_contributions ENABLE ROW LEVEL SECURITY;
-
--- Políticas RLS para financial_transactions
-DROP POLICY IF EXISTS "users_own_transactions" ON public.financial_transactions;
-CREATE POLICY "users_own_transactions" ON public.financial_transactions
-FOR ALL TO authenticated
-USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
-
--- Políticas RLS para reserve_goals
-DROP POLICY IF EXISTS "users_own_goals" ON public.reserve_goals;
-CREATE POLICY "users_own_goals" ON public.reserve_goals
-FOR ALL TO authenticated
-USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
-
--- Políticas RLS para reserve_contributions
-DROP POLICY IF EXISTS "users_own_contributions" ON public.reserve_contributions;
-CREATE POLICY "users_own_contributions" ON public.reserve_contributions
-FOR ALL TO authenticated
-USING (user_id = auth.uid())
-WITH CHECK (user_id = auth.uid());
-
--- Índices para performance
-CREATE INDEX IF NOT EXISTS idx_financial_transactions_user_id ON public.financial_transactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_financial_transactions_date ON public.financial_transactions(date);
-CREATE INDEX IF NOT EXISTS idx_financial_transactions_type ON public.financial_transactions(type);
-CREATE INDEX IF NOT EXISTS idx_reserve_goals_user_id ON public.reserve_goals(user_id);
-CREATE INDEX IF NOT EXISTS idx_reserve_contributions_goal_id ON public.reserve_contributions(goal_id);
-CREATE INDEX IF NOT EXISTS idx_reserve_contributions_user_id ON public.reserve_contributions(user_id);
-
--- Função para atualizar updated_at automaticamente
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Triggers para atualizar updated_at
-DROP TRIGGER IF EXISTS update_financial_transactions_updated_at ON public.financial_transactions;
-CREATE TRIGGER update_financial_transactions_updated_at
-    BEFORE UPDATE ON public.financial_transactions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_reserve_goals_updated_at ON public.reserve_goals;
-CREATE TRIGGER update_reserve_goals_updated_at
-    BEFORE UPDATE ON public.reserve_goals
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
--- Função para atualizar o valor atual da meta quando há contribuições
-CREATE OR REPLACE FUNCTION update_goal_current_amount()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF TG_OP = 'INSERT' THEN
-        UPDATE public.reserve_goals 
-        SET current_amount = current_amount + NEW.amount
-        WHERE id = NEW.goal_id;
-        RETURN NEW;
-    ELSIF TG_OP = 'DELETE' THEN
-        UPDATE public.reserve_goals 
-        SET current_amount = current_amount - OLD.amount
-        WHERE id = OLD.goal_id;
-        RETURN OLD;
-    END IF;
-    RETURN NULL;
-END;
-$$ language 'plpgsql';
-
--- Trigger para atualizar valor da meta automaticamente
-DROP TRIGGER IF EXISTS update_goal_amount ON public.reserve_contributions;
-CREATE TRIGGER update_goal_amount
-    AFTER INSERT OR DELETE ON public.reserve_contributions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_goal_current_amount();
-
--- Política de acesso para super admins
-DROP POLICY IF EXISTS "super_admin_full_access_transactions" ON public.financial_transactions;
-CREATE POLICY "super_admin_full_access_transactions" ON public.financial_transactions
-FOR ALL TO authenticated
-USING (auth.jwt() ->> 'email' IN ('yuriadrskt@gmail.com', 'adm.financeflow@gmail.com'))
-WITH CHECK (auth.jwt() ->> 'email' IN ('yuriadrskt@gmail.com', 'adm.financeflow@gmail.com'));
-
-DROP POLICY IF EXISTS "super_admin_full_access_goals" ON public.reserve_goals;
-CREATE POLICY "super_admin_full_access_goals" ON public.reserve_goals
-FOR ALL TO authenticated
-USING (auth.jwt() ->> 'email' IN ('yuriadrskt@gmail.com', 'adm.financeflow@gmail.com'))
-WITH CHECK (auth.jwt() ->> 'email' IN ('yuriadrskt@gmail.com', 'adm.financeflow@gmail.com'));
-
-DROP POLICY IF EXISTS "super_admin_full_access_contributions" ON public.reserve_contributions;
-CREATE POLICY "super_admin_full_access_contributions" ON public.reserve_contributions
-FOR ALL TO authenticated
-USING (auth.jwt() ->> 'email' IN ('yuriadrskt@gmail.com', 'adm.financeflow@gmail.com'))
-WITH CHECK (auth.jwt() ->> 'email' IN ('yuriadrskt@gmail.com', 'adm.financeflow@gmail.com'));
-
--- Log de sucesso
+-- Verificar se as colunas necessárias existem na tabela expenses
 DO $$
 BEGIN
-    RAISE NOTICE '✅ SISTEMA FINANCEIRO INDIVIDUAL CONFIGURADO COM SUCESSO!';
-    RAISE NOTICE '📊 Tabelas criadas: financial_transactions, reserve_goals, reserve_contributions';
-    RAISE NOTICE '🔒 RLS configurado para todas as tabelas';
-    RAISE NOTICE '⚡ Índices e triggers criados para performance';
-    RAISE NOTICE '🎯 Sistema de reserva inteligente pronto!';
-    RAISE NOTICE '👤 Sistema limitado a usuários individuais apenas!';
-END $$;
+    -- Adicionar coluna month se não existir
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'expenses' AND column_name = 'month') THEN
+        ALTER TABLE expenses ADD COLUMN month VARCHAR(7);
+    END IF;
+    
+    -- Adicionar índices para melhor performance
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_expenses_user_category') THEN
+        CREATE INDEX idx_expenses_user_category ON expenses(user_id, category);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_expenses_description_pattern') THEN
+        CREATE INDEX idx_expenses_description_pattern ON expenses USING gin(description gin_trgm_ops);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_expenses_month') THEN
+        CREATE INDEX idx_expenses_month ON expenses(month);
+    END IF;
+END$$;
+
+-- Criar função para atualizar automaticamente o campo month
+CREATE OR REPLACE FUNCTION update_expenses_month()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.month = to_char(NEW.created_at, 'YYYY-MM');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Criar trigger para atualizar month automaticamente
+DROP TRIGGER IF EXISTS trigger_update_expenses_month ON expenses;
+CREATE TRIGGER trigger_update_expenses_month
+    BEFORE INSERT OR UPDATE ON expenses
+    FOR EACH ROW
+    EXECUTE FUNCTION update_expenses_month();
+
+-- Atualizar registros existentes que não têm month
+UPDATE expenses 
+SET month = to_char(created_at, 'YYYY-MM') 
+WHERE month IS NULL;
+
+-- Criar função para buscar transações financeiras com filtros
+CREATE OR REPLACE FUNCTION get_financial_transactions(
+    p_user_id UUID,
+    p_type TEXT DEFAULT NULL,
+    p_category TEXT DEFAULT NULL,
+    p_date_from DATE DEFAULT NULL,
+    p_date_to DATE DEFAULT NULL,
+    p_paid_status TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+    id UUID,
+    user_id UUID,
+    description TEXT,
+    value DECIMAL,
+    category VARCHAR(100),
+    month VARCHAR(7),
+    created_at TIMESTAMPTZ,
+    transaction_type TEXT,
+    is_paid BOOLEAN,
+    transaction_date DATE
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.user_id,
+        e.description,
+        e.value,
+        e.category,
+        e.month,
+        e.created_at,
+        CASE 
+            WHEN e.description LIKE 'FINANCIAL_INCOME:%' THEN 'income'
+            WHEN e.description LIKE 'FINANCIAL_EXPENSE:%' THEN 'expense'
+            ELSE 'other'
+        END as transaction_type,
+        CASE 
+            WHEN e.description LIKE '%Paid: true%' THEN true
+            ELSE false
+        END as is_paid,
+        COALESCE(
+            (regexp_match(e.description, 'Date: ([0-9]{4}-[0-9]{2}-[0-9]{2})'))[1]::DATE,
+            e.created_at::DATE
+        ) as transaction_date
+    FROM expenses e
+    WHERE e.user_id = p_user_id
+        AND (e.description LIKE 'FINANCIAL_INCOME:%' OR e.description LIKE 'FINANCIAL_EXPENSE:%')
+        AND (p_type IS NULL OR 
+             (p_type = 'income' AND e.description LIKE 'FINANCIAL_INCOME:%') OR
+             (p_type = 'expense' AND e.description LIKE 'FINANCIAL_EXPENSE:%'))
+        AND (p_category IS NULL OR e.category ILIKE '%' || p_category || '%')
+        AND (p_date_from IS NULL OR 
+             COALESCE(
+                (regexp_match(e.description, 'Date: ([0-9]{4}-[0-9]{2}-[0-9]{2})'))[1]::DATE,
+                e.created_at::DATE
+             ) >= p_date_from)
+        AND (p_date_to IS NULL OR 
+             COALESCE(
+                (regexp_match(e.description, 'Date: ([0-9]{4}-[0-9]{2}-[0-9]{2})'))[1]::DATE,
+                e.created_at::DATE
+             ) <= p_date_to)
+        AND (p_paid_status IS NULL OR
+             (p_paid_status = 'paid' AND e.description LIKE '%Paid: true%') OR
+             (p_paid_status = 'pending' AND e.description NOT LIKE '%Paid: true%'))
+    ORDER BY e.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Criar função para calcular resumo financeiro
+CREATE OR REPLACE FUNCTION get_financial_summary(p_user_id UUID)
+RETURNS TABLE (
+    total_income DECIMAL,
+    total_expenses DECIMAL,
+    balance DECIMAL,
+    pending_income DECIMAL,
+    pending_expenses DECIMAL
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COALESCE(ABS(SUM(CASE WHEN e.description LIKE 'FINANCIAL_INCOME:%' THEN e.value ELSE 0 END)), 0) as total_income,
+        COALESCE(SUM(CASE WHEN e.description LIKE 'FINANCIAL_EXPENSE:%' THEN e.value ELSE 0 END), 0) as total_expenses,
+        COALESCE(ABS(SUM(CASE WHEN e.description LIKE 'FINANCIAL_INCOME:%' THEN e.value ELSE 0 END)), 0) - 
+        COALESCE(SUM(CASE WHEN e.description LIKE 'FINANCIAL_EXPENSE:%' THEN e.value ELSE 0 END), 0) as balance,
+        COALESCE(ABS(SUM(CASE WHEN e.description LIKE 'FINANCIAL_INCOME:%' AND e.description NOT LIKE '%Paid: true%' THEN e.value ELSE 0 END)), 0) as pending_income,
+        COALESCE(SUM(CASE WHEN e.description LIKE 'FINANCIAL_EXPENSE:%' AND e.description NOT LIKE '%Paid: true%' THEN e.value ELSE 0 END), 0) as pending_expenses
+    FROM expenses e
+    WHERE e.user_id = p_user_id
+        AND (e.description LIKE 'FINANCIAL_INCOME:%' OR e.description LIKE 'FINANCIAL_EXPENSE:%');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Criar função para gerenciar metas de reserva
+CREATE OR REPLACE FUNCTION get_reserve_goals(p_user_id UUID)
+RETURNS TABLE (
+    id UUID,
+    user_id UUID,
+    description TEXT,
+    value DECIMAL,
+    category VARCHAR(100),
+    created_at TIMESTAMPTZ,
+    goal_name TEXT,
+    target_amount DECIMAL,
+    current_amount DECIMAL,
+    icon TEXT,
+    progress_percentage DECIMAL
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        e.id,
+        e.user_id,
+        e.description,
+        e.value,
+        e.category,
+        e.created_at,
+        (regexp_match(e.description, 'RESERVE_GOAL: ([^|]+)'))[1] as goal_name,
+        (regexp_match(e.description, 'Target: ([0-9.]+)'))[1]::DECIMAL as target_amount,
+        (regexp_match(e.description, 'Current: ([0-9.]+)'))[1]::DECIMAL as current_amount,
+        COALESCE((regexp_match(e.description, 'Icon: ([^|]+)'))[1], '🎯') as icon,
+        CASE 
+            WHEN (regexp_match(e.description, 'Target: ([0-9.]+)'))[1]::DECIMAL > 0 THEN
+                LEAST(
+                    ((regexp_match(e.description, 'Current: ([0-9.]+)'))[1]::DECIMAL / 
+                     (regexp_match(e.description, 'Target: ([0-9.]+)'))[1]::DECIMAL) * 100,
+                    100
+                )
+            ELSE 0
+        END as progress_percentage
+    FROM expenses e
+    WHERE e.user_id = p_user_id
+        AND e.category = 'Meta de Reserva'
+        AND e.description LIKE 'RESERVE_GOAL:%'
+    ORDER BY e.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Garantir que as políticas RLS estão corretas
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+
+-- Recriar políticas se necessário
+DROP POLICY IF EXISTS "Users can view own expenses" ON expenses;
+CREATE POLICY "Users can view own expenses" ON expenses
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own expenses" ON expenses;
+CREATE POLICY "Users can insert own expenses" ON expenses
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update own expenses" ON expenses;
+CREATE POLICY "Users can update own expenses" ON expenses
+    FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own expenses" ON expenses;
+CREATE POLICY "Users can delete own expenses" ON expenses
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Conceder permissões necessárias
+GRANT EXECUTE ON FUNCTION get_financial_transactions TO authenticated;
+GRANT EXECUTE ON FUNCTION get_financial_summary TO authenticated;
+GRANT EXECUTE ON FUNCTION get_reserve_goals TO authenticated;
+
+-- Habilitar extensão trigram para busca de texto
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+COMMIT;

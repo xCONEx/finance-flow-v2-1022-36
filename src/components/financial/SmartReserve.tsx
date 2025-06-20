@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { PiggyBank, Plus, Target } from 'lucide-react';
+import { PiggyBank, Plus, Target, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import AddReserveGoalModal from './AddReserveGoalModal';
+import AddValueToReserveModal from './AddValueToReserveModal';
 
 interface ReserveGoal {
   id: string;
@@ -22,6 +23,8 @@ const SmartReserve: React.FC = () => {
   const [goals, setGoals] = useState<ReserveGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddGoalModal, setShowAddGoalModal] = useState(false);
+  const [showAddValueModal, setShowAddValueModal] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<ReserveGoal | null>(null);
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
 
@@ -70,6 +73,40 @@ const SmartReserve: React.FC = () => {
 
   const getProgressPercentage = (current: number, target: number) => {
     return target > 0 ? Math.min((current / target) * 100, 100) : 0;
+  };
+
+  const handleAddValue = (goal: ReserveGoal) => {
+    setSelectedGoal(goal);
+    setShowAddValueModal(true);
+  };
+
+  const handleDeleteGoal = async (goal: ReserveGoal) => {
+    if (!confirm('Tem certeza que deseja excluir esta meta de reserva?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', goal.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Meta de reserva excluída com sucesso!",
+      });
+
+      loadGoals();
+    } catch (error) {
+      console.error('Erro ao excluir meta:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir meta. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -123,10 +160,20 @@ const SmartReserve: React.FC = () => {
             return (
               <Card key={goal.id} className="relative overflow-hidden">
                 <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <span className="text-2xl">{goalData.icon}</span>
-                    {goalData.name}
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <span className="text-2xl">{goalData.icon}</span>
+                      {goalData.name}
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteGoal(goal)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -153,7 +200,7 @@ const SmartReserve: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Restante</span>
                       <span className="font-semibold text-orange-600">
-                        {formatCurrency(goalData.target - goalData.current)}
+                        {formatCurrency(Math.max(0, goalData.target - goalData.current))}
                       </span>
                     </div>
                   </div>
@@ -162,7 +209,7 @@ const SmartReserve: React.FC = () => {
                     variant="outline" 
                     size="sm" 
                     className="w-full"
-                    disabled
+                    onClick={() => handleAddValue(goal)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Adicionar Valor
@@ -174,11 +221,17 @@ const SmartReserve: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para Adicionar Meta */}
+      {/* Modais */}
       <AddReserveGoalModal
         isOpen={showAddGoalModal}
         onClose={() => setShowAddGoalModal(false)}
         onSuccess={loadGoals}
+      />
+      <AddValueToReserveModal
+        isOpen={showAddValueModal}
+        onClose={() => setShowAddValueModal(false)}
+        onSuccess={loadGoals}
+        goal={selectedGoal}
       />
     </div>
   );
