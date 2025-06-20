@@ -355,6 +355,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .eq('user_id', user.id)
         .not('description', 'ilike', 'FINANCIAL_INCOME:%')
         .not('description', 'ilike', 'FINANCIAL_EXPENSE:%')
+        .not('description', 'ilike', 'RESERVE_%')
+        .not('description', 'ilike', 'Reserva:%')
+        .not('description', 'ilike', 'SMART_RESERVE%')
+        .neq('category', 'Reserva')
+        .neq('category', 'Smart Reserve')
+        .neq('category', 'Reserve')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -1072,4 +1078,3 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 };
 
 export default AppProvider;
-
