@@ -11,6 +11,7 @@ import AddReserveGoalModal from './AddReserveGoalModal';
 
 interface ReserveGoal {
   id: string;
+  user_id: string;
   name: string;
   target_amount: number;
   current_amount: number;
@@ -29,11 +30,14 @@ const SmartReserve: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('reserve_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('execute_sql', {
+        query: `
+          SELECT * FROM reserve_goals 
+          WHERE user_id = $1 
+          ORDER BY created_at DESC
+        `,
+        params: [user.id]
+      });
 
       if (error) throw error;
       setGoals(data || []);

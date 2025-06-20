@@ -12,6 +12,7 @@ import AddExpenseModal from './AddExpenseModal';
 
 interface FinancialTransaction {
   id: string;
+  user_id: string;
   type: 'income' | 'expense';
   description: string;
   amount: number;
@@ -51,12 +52,15 @@ const FinancialOverview: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('financial_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const { data, error } = await supabase.rpc('execute_sql', {
+        query: `
+          SELECT * FROM financial_transactions 
+          WHERE user_id = $1 
+          ORDER BY created_at DESC 
+          LIMIT 50
+        `,
+        params: [user.id]
+      });
 
       if (error) throw error;
 
@@ -64,13 +68,13 @@ const FinancialOverview: React.FC = () => {
       setTransactions(transactionData);
 
       // Calculate summary
-      const income = transactionData.filter((t) => t.type === 'income');
-      const expenses = transactionData.filter((t) => t.type === 'expense');
+      const income = transactionData.filter((t: FinancialTransaction) => t.type === 'income');
+      const expenses = transactionData.filter((t: FinancialTransaction) => t.type === 'expense');
 
-      const paidIncome = income.filter(t => t.is_paid);
-      const paidExpenses = expenses.filter(t => t.is_paid);
-      const pendingIncome = income.filter(t => !t.is_paid);
-      const pendingExpenses = expenses.filter(t => !t.is_paid);
+      const paidIncome = income.filter((t: FinancialTransaction) => t.is_paid);
+      const paidExpenses = expenses.filter((t: FinancialTransaction) => t.is_paid);
+      const pendingIncome = income.filter((t: FinancialTransaction) => !t.is_paid);
+      const pendingExpenses = expenses.filter((t: FinancialTransaction) => !t.is_paid);
 
       const totalIncome = paidIncome.reduce((sum, t) => sum + Number(t.amount || 0), 0);
       const totalExpenses = paidExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
@@ -196,7 +200,9 @@ const FinancialOverview: React.FC = () => {
         <CardContent>
           {transactions.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">Nenhuma transação encontrada.</p>
+              <p className="text-mute
+
+              d-foreground">Nenhuma transação encontrada.</p>
               <p className="text-sm text-muted-foreground mt-2">Adicione sua primeira entrada ou saída!</p>
             </div>
           ) : (
