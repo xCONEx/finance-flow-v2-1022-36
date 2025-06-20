@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -125,7 +126,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .insert({
           name,
-          owner_id: owner.id,
+          owner_uid: owner.id,
           status: 'active'
         });
       if (error) throw error;
@@ -159,7 +160,7 @@ const CompanyManagement = () => {
         .from('agencies')
         .update({
           name,
-          owner_id: owner.id
+          owner_uid: owner.id
         })
         .eq('id', selectedCompany.id);
       if (error) throw error;
@@ -370,7 +371,6 @@ const CompanyManagement = () => {
         isOpen={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         users={users}
-        onCreateCompany={handleCreateCompany}
       />
 
       <EditCompanyDialog

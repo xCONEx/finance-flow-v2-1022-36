@@ -30,15 +30,18 @@ const AddReserveGoalModal: React.FC<AddReserveGoalModalProps> = ({ isOpen, onClo
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('reserve_goals')
-        .insert({
-          user_id: user.id,
-          name: formData.name,
-          target_amount: parseFloat(formData.target_amount),
-          current_amount: 0,
-          icon: formData.icon || '🎯'
-        });
+      const { error } = await supabase.rpc('exec_sql', {
+        sql: `
+          INSERT INTO reserve_goals (user_id, name, target_amount, current_amount, icon)
+          VALUES ($1, $2, $3, 0, $4)
+        `,
+        params: [
+          user.id,
+          formData.name,
+          parseFloat(formData.target_amount),
+          formData.icon || '🎯'
+        ]
+      });
 
       if (error) throw error;
 

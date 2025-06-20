@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, DollarSign, Plus, ArrowUpDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,12 +50,10 @@ const FinancialOverview: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('financial_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false })
-        .limit(50);
+      const { data, error } = await supabase.rpc('exec_sql', {
+        sql: 'SELECT * FROM financial_transactions WHERE user_id = $1 ORDER BY date DESC LIMIT 50',
+        params: [user.id]
+      });
 
       if (error) throw error;
 
@@ -64,13 +61,13 @@ const FinancialOverview: React.FC = () => {
       setTransactions(transactionData);
 
       // Calcular resumo
-      const income = transactionData.filter(t => t.type === 'income');
-      const expenses = transactionData.filter(t => t.type === 'expense');
+      const income = transactionData.filter((t: Transaction) => t.type === 'income');
+      const expenses = transactionData.filter((t: Transaction) => t.type === 'expense');
 
-      const totalIncome = income.filter(t => t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
-      const totalExpenses = expenses.filter(t => t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
-      const pendingIncome = income.filter(t => !t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
-      const pendingExpenses = expenses.filter(t => !t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
+      const totalIncome = income.filter((t: Transaction) => t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
+      const totalExpenses = expenses.filter((t: Transaction) => t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
+      const pendingIncome = income.filter((t: Transaction) => !t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
+      const pendingExpenses = expenses.filter((t: Transaction) => !t.is_paid).reduce((sum, t) => sum + Number(t.amount), 0);
 
       setSummary({
         totalIncome,

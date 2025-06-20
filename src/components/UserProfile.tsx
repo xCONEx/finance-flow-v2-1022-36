@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { User, Save, Upload, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,9 +52,9 @@ const UserProfile = () => {
   useEffect(() => {
     if (user && profile) {
       // Se o profile tem empresa vinculada, usar o nome dela. Supondo que você tem essa info:
-      // Exemplo: profile.company_name (empresa vinculada) ou null se não tem
-      if (profile.company_name) {
-        setLinkedCompanyName(profile.company_name);
+      // Exemplo: profile.company (empresa vinculada) ou null se não tem
+      if (profile.company) {
+        setLinkedCompanyName(profile.company);
       } else {
         setLinkedCompanyName(null);
       }
@@ -380,8 +381,8 @@ const UserProfile = () => {
                     setIsEditing(false);
                     // Reset form data e linkedCompanyName
                     if (user && profile) {
-                      if (profile.company_name) {
-                        setLinkedCompanyName(profile.company_name);
+                      if (profile.company) {
+                        setLinkedCompanyName(profile.company);
                       } else {
                         setLinkedCompanyName(null);
                       }
