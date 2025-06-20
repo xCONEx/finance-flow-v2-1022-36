@@ -12,12 +12,16 @@ import AddExpenseModal from './AddExpenseModal';
 
 interface FinancialTransaction {
   id: string;
+  type: 'income' | 'expense';
   description: string;
-  value: number;
+  amount: number;
   category: string;
-  month: string;
+  payment_method: string;
+  date: string;
+  is_paid: boolean;
+  client_name?: string;
+  supplier?: string;
   created_at: string;
-  user_id: string;
 }
 
 interface FinancialSummary {
@@ -47,9 +51,8 @@ const FinancialOverview: React.FC = () => {
     if (!user) return;
 
     try {
-      // Load transactions from expenses table
       const { data, error } = await supabase
-        .from('expenses')
+        .from('financial_transactions')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -60,19 +63,26 @@ const FinancialOverview: React.FC = () => {
       const transactionData = data || [];
       setTransactions(transactionData);
 
-      // Calculate summary based on description prefixes
-      const income = transactionData.filter((t) => t.description.startsWith('[ENTRADA]'));
-      const expenses = transactionData.filter((t) => t.description.startsWith('[SAÍDA]'));
+      // Calculate summary
+      const income = transactionData.filter((t) => t.type === 'income');
+      const expenses = transactionData.filter((t) => t.type === 'expense');
 
-      const totalIncome = income.reduce((sum, t) => sum + Number(t.value || 0), 0);
-      const totalExpenses = expenses.reduce((sum, t) => sum + Number(t.value || 0), 0);
+      const paidIncome = income.filter(t => t.is_paid);
+      const paidExpenses = expenses.filter(t => t.is_paid);
+      const pendingIncome = income.filter(t => !t.is_paid);
+      const pendingExpenses = expenses.filter(t => !t.is_paid);
+
+      const totalIncome = paidIncome.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      const totalExpenses = paidExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      const pendingIncomeTotal = pendingIncome.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      const pendingExpensesTotal = pendingExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
       setSummary({
         totalIncome,
         totalExpenses,
         balance: totalIncome - totalExpenses,
-        pendingIncome: 0, // We'll implement this later
-        pendingExpenses: 0 // We'll implement this later
+        pendingIncome: pendingIncomeTotal,
+        pendingExpenses: pendingExpensesTotal
       });
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
@@ -95,17 +105,6 @@ const FinancialOverview: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
-  };
-
-  const getTransactionType = (description: string) => {
-    if (description.startsWith('[ENTRADA]')) return 'income';
-    if (description.startsWith('[SAÍDA]')) return 'expense';
-    if (description.startsWith('[META]')) return 'goal';
-    return 'other';
-  };
-
-  const cleanDescription = (description: string) => {
-    return description.replace(/^\[(ENTRADA|SAÍDA|META)\]\s*/, '');
   };
 
   if (loading) {
@@ -202,32 +201,42 @@ const FinancialOverview: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {transactions.map((transaction) => {
-                const type = getTransactionType(transaction.description);
-                return (
-                  <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{cleanDescription(transaction.description)}</h4>
-                        <Badge variant={type === 'income' ? 'default' : type === 'expense' ? 'destructive' : 'secondary'}>
-                          {type === 'income' ? 'Entrada' : type === 'expense' ? 'Saída' : 'Meta'}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {transaction.category} • {formatDate(transaction.created_at)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Mês: {transaction.month}
-                      </p>
+              {transactions.map((transaction) => (
+                <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium">{transaction.description}</h4>
+                      <Badge variant={transaction.type === 'income' ? 'default' : 'destructive'}>
+                        {transaction.type === 'income' ? 'Entrada' : 'Saída'}
+                      </Badge>
+                      {!transaction.is_paid && (
+                        <Badge variant="outline">Pendente</Badge>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <p className={`font-bold ${type === 'income' ? 'text-green-600' : type === 'expense' ? 'text-red-600' : 'text-purple-600'}`}>
-                        {type === 'income' ? '+' : type === 'expense' ? '-' : ''}{formatCurrency(transaction.value || 0)}
+                    <p className="text-sm text-muted-foreground">
+                      {transaction.category} • {formatDate(transaction.date)}
+                    </p>
+                    {transaction.client_name && (
+                      <p className="text-sm text-muted-foreground">
+                        Cliente: {transaction.client_name}
                       </p>
-                    </div>
+                    )}
+                    {transaction.supplier && (
+                      <p className="text-sm text-muted-foreground">
+                        Fornecedor: {transaction.supplier}
+                      </p>
+                    )}
                   </div>
-                );
-              })}
+                  <div className="text-right">
+                    <p className={`font-bold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount || 0)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {transaction.payment_method}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
