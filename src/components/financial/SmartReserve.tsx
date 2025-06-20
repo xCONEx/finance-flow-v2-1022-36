@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { PiggyBank, Plus, Target, Trash2 } from 'lucide-react';
+import { PiggyBank, Plus, Target, Trash2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { usePrivacy } from '@/contexts/PrivacyContext';
 import AddReserveGoalModal from './AddReserveGoalModal';
 import AddValueToReserveModal from './AddValueToReserveModal';
 
@@ -27,6 +28,7 @@ const SmartReserve: React.FC = () => {
   const [selectedGoal, setSelectedGoal] = useState<ReserveGoal | null>(null);
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
+  const { valuesHidden, toggleValuesVisibility, formatValue } = usePrivacy();
 
   const loadGoals = async () => {
     if (!user) return;
@@ -62,13 +64,6 @@ const SmartReserve: React.FC = () => {
     const current = parseFloat(parts.find(p => p.startsWith('Current:'))?.replace('Current: ', '') || '0');
 
     return { name, target, icon, current };
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
   };
 
   const getProgressPercentage = (current: number, target: number) => {
@@ -130,10 +125,30 @@ const SmartReserve: React.FC = () => {
             Crie suas "caixinhas" de economia e acompanhe o progresso para alcançar seus objetivos financeiros.
           </p>
         </div>
-        <Button onClick={() => setShowAddGoalModal(true)} className="bg-purple-600 hover:bg-purple-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Meta
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleValuesVisibility}
+            className="flex items-center gap-2"
+          >
+            {valuesHidden ? (
+              <>
+                <EyeOff className="h-4 w-4" />
+                Mostrar Valores
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4" />
+                Ocultar Valores
+              </>
+            )}
+          </Button>
+          <Button onClick={() => setShowAddGoalModal(true)} className="bg-purple-600 hover:bg-purple-700">
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Meta
+          </Button>
+        </div>
       </div>
 
       {/* Lista de Metas */}
@@ -188,19 +203,19 @@ const SmartReserve: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Valor Atual</span>
                       <span className="font-semibold text-green-600">
-                        {formatCurrency(goalData.current)}
+                        {formatValue(goalData.current)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Meta</span>
                       <span className="font-semibold">
-                        {formatCurrency(goalData.target)}
+                        {formatValue(goalData.target)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Restante</span>
                       <span className="font-semibold text-orange-600">
-                        {formatCurrency(Math.max(0, goalData.target - goalData.current))}
+                        {formatValue(Math.max(0, goalData.target - goalData.current))}
                       </span>
                     </div>
                   </div>

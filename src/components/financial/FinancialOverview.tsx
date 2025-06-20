@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, DollarSign, Plus, ArrowUpDown, Edit, FileText, Filter } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Plus, ArrowUpDown, Edit, FileText, Filter, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { usePrivacy } from '@/contexts/PrivacyContext';
 import AddIncomeModal from './AddIncomeModal';
 import AddExpenseModal from './AddExpenseModal';
 import EditTransactionModal from './EditTransactionModal';
@@ -55,6 +56,7 @@ const FinancialOverview: React.FC = () => {
 
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
+  const { valuesHidden, toggleValuesVisibility, formatValue } = usePrivacy();
 
   const loadTransactions = async () => {
     if (!user) return;
@@ -84,12 +86,23 @@ const FinancialOverview: React.FC = () => {
       const totalIncome = Math.abs(incomeTransactions.reduce((sum, t) => sum + t.value, 0));
       const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.value, 0);
 
+      // Calculate pending amounts
+      const pendingIncomeTransactions = incomeTransactions.filter(t => 
+        !t.description.includes('Paid: true')
+      );
+      const pendingExpenseTransactions = expenseTransactions.filter(t => 
+        !t.description.includes('Paid: true')
+      );
+
+      const pendingIncome = Math.abs(pendingIncomeTransactions.reduce((sum, t) => sum + t.value, 0));
+      const pendingExpenses = pendingExpenseTransactions.reduce((sum, t) => sum + t.value, 0);
+
       setSummary({
         totalIncome,
         totalExpenses,
         balance: totalIncome - totalExpenses,
-        pendingIncome: 0,
-        pendingExpenses: 0
+        pendingIncome,
+        pendingExpenses
       });
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
@@ -195,7 +208,7 @@ const FinancialOverview: React.FC = () => {
         type: transactionData.isIncome ? 'Entrada' : 'Saída',
         description: transactionData.description,
         category: transaction.category,
-        amount: formatCurrency(Math.abs(transaction.value)),
+        amount: formatValue(Math.abs(transaction.value)),
         paymentMethod: transactionData.paymentMethod,
         clientSupplier: transactionData.clientOrSupplier,
         status: transactionData.isPaid ? 'Pago' : 'Pendente'
@@ -237,6 +250,28 @@ const FinancialOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Privacy Toggle */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleValuesVisibility}
+          className="flex items-center gap-2"
+        >
+          {valuesHidden ? (
+            <>
+              <EyeOff className="h-4 w-4" />
+              Mostrar Valores
+            </>
+          ) : (
+            <>
+              <Eye className="h-4 w-4" />
+              Ocultar Valores
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* Header com Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -245,7 +280,7 @@ const FinancialOverview: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Entradas</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(summary.totalIncome)}
+                  {formatValue(summary.totalIncome)}
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-green-600" />
@@ -259,7 +294,7 @@ const FinancialOverview: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Saídas</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {formatCurrency(summary.totalExpenses)}
+                  {formatValue(summary.totalExpenses)}
                 </p>
               </div>
               <TrendingDown className="h-8 w-8 text-red-600" />
@@ -273,7 +308,7 @@ const FinancialOverview: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Saldo</p>
                 <p className={`text-2xl font-bold ${summary.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(summary.balance)}
+                  {formatValue(summary.balance)}
                 </p>
               </div>
               <DollarSign className="h-8 w-8 text-blue-600" />
@@ -287,7 +322,7 @@ const FinancialOverview: React.FC = () => {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">A Receber</p>
                 <p className="text-2xl font-bold text-orange-600">
-                  {formatCurrency(summary.pendingIncome)}
+                  {formatValue(summary.pendingIncome)}
                 </p>
               </div>
               <ArrowUpDown className="h-8 w-8 text-orange-600" />
@@ -426,7 +461,7 @@ const FinancialOverview: React.FC = () => {
                     <div className="text-right flex items-center gap-2">
                       <div>
                         <p className={`font-bold ${transactionData.isIncome ? 'text-green-600' : 'text-red-600'}`}>
-                          {transactionData.isIncome ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
+                          {transactionData.isIncome ? '+' : '-'}{formatValue(Math.abs(transaction.value))}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {transactionData.paymentMethod}
