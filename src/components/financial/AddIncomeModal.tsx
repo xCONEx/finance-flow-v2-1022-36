@@ -67,29 +67,20 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
 
     setLoading(true);
     try {
-      // Usar SQL direto através de uma query personalizada
       const { error } = await supabase
-        .rpc('exec_sql', {
-          query: `
-            INSERT INTO financial_transactions (
-              user_id, type, description, amount, category, payment_method, 
-              client_name, date, time, work_id, is_paid
-            ) VALUES (
-              $1, 'income', $2, $3, $4, $5, $6, $7, $8, $9, $10
-            )
-          `,
-          params: [
-            user.id,
-            formData.description,
-            parseFloat(formData.amount) || 0,
-            formData.category,
-            formData.payment_method,
-            formData.client_name || null,
-            formData.date,
-            formData.time || null,
-            formData.work_id || null,
-            formData.is_paid
-          ]
+        .from('financial_transactions')
+        .insert({
+          user_id: user.id,
+          type: 'income',
+          description: formData.description,
+          amount: parseFloat(formData.amount) || 0,
+          category: formData.category,
+          payment_method: formData.payment_method,
+          client_name: formData.client_name || null,
+          date: formData.date,
+          time: formData.time || null,
+          work_id: formData.work_id || null,
+          is_paid: formData.is_paid
         });
 
       if (error) throw error;
@@ -116,7 +107,7 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
       console.error('Erro ao adicionar entrada:', error);
       toast({
         title: "Erro",
-        description: "Erro ao adicionar entrada. Certifique-se de que executou o SQL das tabelas financeiras.",
+        description: "Erro ao adicionar entrada. Verifique se as tabelas financeiras foram criadas.",
         variant: "destructive",
       });
     } finally {
@@ -162,7 +153,7 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
                 <SelectValue placeholder="Selecione um trabalho..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum trabalho vinculado</SelectItem>
+                <SelectItem value="none">Nenhum trabalho vinculado</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -45,7 +45,7 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({
     setLoading(true);
     try {
       const { data: user, error: userError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('id')
         .eq('email', ownerEmail)
         .single();
@@ -57,9 +57,8 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({
       const { error } = await supabase.from('agencies').insert([
         {
           name,
-          owner_id: user.id,
-          cnpj,
-          description,
+          owner_uid: user.id,
+          status: 'active'
         },
       ]);
 
