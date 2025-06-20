@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSupabaseAuth } from './SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -357,7 +358,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error) throw error;
 
-      const costsData = data || [];
+      // Map database fields to MonthlyCost interface
+      const costsData: MonthlyCost[] = (data || []).map(item => ({
+        id: item.id,
+        description: item.description,
+        category: item.category,
+        value: Number(item.value),
+        month: item.month,
+        dueDate: item.due_date,
+        isRecurring: item.is_recurring || false,
+        installments: item.installments,
+        currentInstallment: item.current_installment,
+        parentId: item.parent_id,
+        notificationEnabled: item.notification_enabled !== false,
+        createdAt: item.created_at,
+        userId: item.user_id,
+        companyId: item.company_id
+      }));
+
       setMonthlyCosts(costsData);
     } catch (error) {
       console.error('Erro ao carregar custos mensais:', error);
