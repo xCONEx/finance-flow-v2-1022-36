@@ -340,35 +340,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loadMonthlyCosts = async () => {
-    if (!user) return;
-    
+    if (!user) {
+      setMonthlyCosts([]);
+      return;
+    }
+
+    setLoading(true);
     try {
-      const { data: expensesData, error: expensesError } = await supabase
+      const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', user.id);
-      
-      if (expensesError) {
-        console.error('❌ Erro ao carregar despesas:', expensesError);
-      } else if (expensesData) {
-        setMonthlyCosts(expensesData.map(expense => ({
-          id: expense.id,
-          description: expense.description,
-          category: expense.category,
-          value: Number(expense.value),
-          month: expense.month,
-          dueDate: (expense as any).due_date || undefined,
-          isRecurring: (expense as any).is_recurring || false,
-          installments: (expense as any).installments || undefined,
-          currentInstallment: (expense as any).current_installment || undefined,
-          parentId: (expense as any).parent_id || undefined,
-          notificationEnabled: (expense as any).notification_enabled !== false,
-          createdAt: expense.created_at,
-          userId: expense.user_id
-        })));
-      }
+        .eq('user_id', user.id)
+        .not('description', 'ilike', 'FINANCIAL_INCOME:%')
+        .not('description', 'ilike', 'FINANCIAL_EXPENSE:%')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const costsData = data || [];
+      setMonthlyCosts(costsData);
     } catch (error) {
-      console.error('❌ Erro ao carregar despesas:', error);
+      console.error('Erro ao carregar custos mensais:', error);
+      setMonthlyCosts([]);
+    } finally {
+      setLoading(false);
     }
   };
 
