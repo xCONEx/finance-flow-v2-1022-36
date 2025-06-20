@@ -11,6 +11,7 @@ export interface NotificationPayload {
     amount?: number;
     dueDate?: string;
     category?: string;
+    type?: 'expense' | 'income';
   };
 }
 
@@ -111,35 +112,69 @@ class NotificationService {
     const dueDate = new Date(expense.due_date);
     const now = new Date();
     
-    // Agendar notificação 3 dias antes
-    const threeDaysBefore = new Date(dueDate);
-    threeDaysBefore.setDate(dueDate.getDate() - 3);
+    // Determinar se é entrada ou saída
+    const isIncome = expense.description?.includes('FINANCIAL_INCOME:') || expense.value < 0;
+    const absoluteValue = Math.abs(expense.value);
     
-    if (threeDaysBefore > now) {
-      await this.scheduleLocalNotification({
-        title: 'Finance Flow - Vencimento em 3 dias',
-        body: `${expense.description} vence em 3 dias - R$ ${expense.value.toFixed(2)}`,
-        data: {
-          costId: expense.id,
-          amount: expense.value,
-          dueDate: expense.due_date,
-          category: expense.category
-        }
-      }, threeDaysBefore);
+    // Agendar notificação 1 dia antes
+    const oneDayBefore = new Date(dueDate);
+    oneDayBefore.setDate(dueDate.getDate() - 1);
+    
+    if (oneDayBefore > now) {
+      if (isIncome) {
+        await this.scheduleLocalNotification({
+          title: 'Finance Flow - Cobrança em 1 dia',
+          body: `Lembre-se de cobrar: ${expense.description.replace('FINANCIAL_INCOME: ', '').split(' | ')[0]} - R$ ${absoluteValue.toFixed(2)}`,
+          data: {
+            costId: expense.id,
+            amount: absoluteValue,
+            dueDate: expense.due_date,
+            category: expense.category,
+            type: 'income'
+          }
+        }, oneDayBefore);
+      } else {
+        await this.scheduleLocalNotification({
+          title: 'Finance Flow - Vencimento em 1 dia',
+          body: `${expense.description} vence amanhã - R$ ${absoluteValue.toFixed(2)}`,
+          data: {
+            costId: expense.id,
+            amount: absoluteValue,
+            dueDate: expense.due_date,
+            category: expense.category,
+            type: 'expense'
+          }
+        }, oneDayBefore);
+      }
     }
 
     // Agendar notificação no dia do vencimento
     if (dueDate > now) {
-      await this.scheduleLocalNotification({
-        title: 'Finance Flow - Vencimento hoje!',
-        body: `${expense.description} vence hoje - R$ ${expense.value.toFixed(2)}`,
-        data: {
-          costId: expense.id,
-          amount: expense.value,
-          dueDate: expense.due_date,
-          category: expense.category
-        }
-      }, dueDate);
+      if (isIncome) {
+        await this.scheduleLocalNotification({
+          title: 'Finance Flow - Hora de cobrar!',
+          body: `Vence hoje: ${expense.description.replace('FINANCIAL_INCOME: ', '').split(' | ')[0]} - R$ ${absoluteValue.toFixed(2)}`,
+          data: {
+            costId: expense.id,
+            amount: absoluteValue,
+            dueDate: expense.due_date,
+            category: expense.category,
+            type: 'income'
+          }
+        }, dueDate);
+      } else {
+        await this.scheduleLocalNotification({
+          title: 'Finance Flow - Vencimento hoje!',
+          body: `${expense.description} vence hoje - R$ ${absoluteValue.toFixed(2)}`,
+          data: {
+            costId: expense.id,
+            amount: absoluteValue,
+            dueDate: expense.due_date,
+            category: expense.category,
+            type: 'expense'
+          }
+        }, dueDate);
+      }
     }
   }
 
