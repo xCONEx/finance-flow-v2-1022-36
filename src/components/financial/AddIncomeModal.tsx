@@ -67,8 +67,9 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
 
     setLoading(true);
     try {
+      // Create a raw SQL query to insert into financial_transactions
       const { error } = await supabase.rpc('exec_sql', {
-        sql: `
+        query: `
           INSERT INTO financial_transactions (user_id, type, description, amount, category, payment_method, client_name, date, time, work_id, is_paid)
           VALUES ($1, 'income', $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `,
@@ -110,7 +111,7 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
       console.error('Erro ao adicionar entrada:', error);
       toast({
         title: "Erro",
-        description: "Erro ao adicionar entrada. Verifique se as tabelas financeiras foram criadas.",
+        description: "Erro ao adicionar entrada. Tente novamente.",
         variant: "destructive",
       });
     } finally {

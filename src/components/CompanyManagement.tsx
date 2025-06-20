@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -115,11 +114,12 @@ const CompanyManagement = () => {
   const handleCreateCompany = async (name: string, ownerEmail: string) => {
     const owner = users.find(u => u.email === ownerEmail);
     if (!owner) {
-      return toast({
+      toast({
         title: "Erro",
         description: "Usuário não encontrado.",
         variant: "destructive"
       });
+      return;
     }
     try {
       const { error } = await supabase
@@ -145,15 +145,15 @@ const CompanyManagement = () => {
   };
 
   // ✏️ Edit Company
-  const handleEditCompany = async (name: string, ownerEmail: string) => {
-    if (!selectedCompany) return;
+  const handleEditCompany = async (id: string, name: string, ownerEmail: string, cnpj: string, description: string) => {
     const owner = users.find(u => u.email === ownerEmail);
     if (!owner) {
-      return toast({
+      toast({
         title: "Erro",
         description: "Usuário não encontrado.",
         variant: "destructive"
       });
+      return;
     }
     try {
       const { error } = await supabase
@@ -162,7 +162,7 @@ const CompanyManagement = () => {
           name,
           owner_uid: owner.id
         })
-        .eq('id', selectedCompany.id);
+        .eq('id', id);
       if (error) throw error;
       toast({
         title: "Sucesso",
@@ -371,6 +371,7 @@ const CompanyManagement = () => {
         isOpen={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         users={users}
+        onCreateCompany={handleCreateCompany}
       />
 
       <EditCompanyDialog

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +50,7 @@ const FinancialOverview: React.FC = () => {
 
     try {
       const { data, error } = await supabase.rpc('exec_sql', {
-        sql: 'SELECT * FROM financial_transactions WHERE user_id = $1 ORDER BY date DESC LIMIT 50',
+        query: 'SELECT * FROM financial_transactions WHERE user_id = $1 ORDER BY date DESC LIMIT 50',
         params: [user.id]
       });
 

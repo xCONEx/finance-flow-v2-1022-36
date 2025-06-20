@@ -74,8 +74,9 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSu
 
     setLoading(true);
     try {
+      // Create a raw SQL query to insert into financial_transactions
       const { error } = await supabase.rpc('exec_sql', {
-        sql: `
+        query: `
           INSERT INTO financial_transactions (user_id, type, description, amount, category, payment_method, supplier, date, time, is_paid)
           VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8, $9)
         `,
@@ -115,7 +116,7 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSu
       console.error('Erro ao adicionar saída:', error);
       toast({
         title: "Erro",
-        description: "Erro ao adicionar saída. Verifique se as tabelas financeiras foram criadas.",
+        description: "Erro ao adicionar saída. Tente novamente.",
         variant: "destructive",
       });
     } finally {

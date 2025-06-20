@@ -31,7 +31,7 @@ const AddReserveGoalModal: React.FC<AddReserveGoalModalProps> = ({ isOpen, onClo
     setLoading(true);
     try {
       const { error } = await supabase.rpc('exec_sql', {
-        sql: `
+        query: `
           INSERT INTO reserve_goals (user_id, name, target_amount, current_amount, icon)
           VALUES ($1, $2, $3, 0, $4)
         `,
@@ -61,7 +61,7 @@ const AddReserveGoalModal: React.FC<AddReserveGoalModalProps> = ({ isOpen, onClo
       console.error('Erro ao criar meta:', error);
       toast({
         title: "Erro",
-        description: "Erro ao criar meta de reserva. Verifique se as tabelas financeiras foram criadas.",
+        description: "Erro ao criar meta de reserva. Tente novamente.",
         variant: "destructive",
       });
     } finally {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,7 @@ const SmartReserve: React.FC = () => {
 
     try {
       const { data, error } = await supabase.rpc('exec_sql', {
-        sql: 'SELECT * FROM reserve_goals WHERE user_id = $1 ORDER BY created_at DESC',
+        query: 'SELECT * FROM reserve_goals WHERE user_id = $1 ORDER BY created_at DESC',
         params: [user.id]
       });
 
