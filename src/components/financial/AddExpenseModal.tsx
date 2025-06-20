@@ -73,25 +73,18 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSu
 
     setLoading(true);
     try {
-      const { error } = await supabase.rpc('execute_sql', {
-        query: `
-          INSERT INTO financial_transactions (
-            user_id, type, description, amount, category, payment_method, supplier, date, is_paid
-          ) VALUES (
-            $1, 'expense', $2, $3, $4, $5, $6, $7, $8
-          )
-        `,
-        params: [
-          user.id,
-          formData.description,
-          parseFloat(formData.amount) || 0,
-          formData.category,
-          formData.payment_method,
-          formData.supplier || null,
-          formData.date,
-          formData.is_paid
-        ]
-      });
+      // Using expenses table temporarily with financial data structure
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      
+      const { error } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          description: `FINANCIAL_EXPENSE: ${formData.description} | Payment: ${formData.payment_method} | Supplier: ${formData.supplier || 'N/A'} | Date: ${formData.date} | Paid: ${formData.is_paid}`,
+          value: parseFloat(formData.amount) || 0,
+          category: formData.category,
+          month: currentMonth
+        });
 
       if (error) throw error;
 

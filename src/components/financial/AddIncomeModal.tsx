@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -65,26 +66,18 @@ const AddIncomeModal: React.FC<AddIncomeModalProps> = ({ isOpen, onClose, onSucc
 
     setLoading(true);
     try {
-      const { error } = await supabase.rpc('execute_sql', {
-        query: `
-          INSERT INTO financial_transactions (
-            user_id, type, description, amount, category, payment_method, client_name, work_id, date, is_paid
-          ) VALUES (
-            $1, 'income', $2, $3, $4, $5, $6, $7, $8, $9
-          )
-        `,
-        params: [
-          user.id,
-          formData.description,
-          parseFloat(formData.amount) || 0,
-          formData.category,
-          formData.payment_method,
-          formData.client_name || null,
-          formData.work_id || null,
-          formData.date,
-          formData.is_paid
-        ]
-      });
+      // Using expenses table temporarily with financial income data structure
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      
+      const { error } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          description: `FINANCIAL_INCOME: ${formData.description} | Payment: ${formData.payment_method} | Client: ${formData.client_name || 'N/A'} | Date: ${formData.date} | Paid: ${formData.is_paid}`,
+          value: -(parseFloat(formData.amount) || 0), // Negative value to represent income
+          category: formData.category,
+          month: currentMonth
+        });
 
       if (error) throw error;
 
