@@ -23,12 +23,14 @@ interface CreateCompanyDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   users: UserProfile[];
+  onCreateCompany: (name: string, ownerEmail: string) => Promise<void>;
 }
 
 const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({
   isOpen,
   onOpenChange,
   users,
+  onCreateCompany,
 }) => {
   const [newCompanyName, setNewCompanyName] = useState('');
   const [selectedOwnerEmail, setSelectedOwnerEmail] = useState('');
@@ -36,47 +38,23 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function onCreateCompany(
-    name: string,
-    ownerEmail: string,
-    cnpj: string,
-    description: string
-  ) {
+  const handleCreateCompany = async () => {
+    if (!newCompanyName || !selectedOwnerEmail) return;
+    
     setLoading(true);
     try {
-      const { data: user, error: userError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', ownerEmail)
-        .single();
-
-      if (userError || !user) {
-        throw new Error('Usuário proprietário não encontrado');
-      }
-
-      const { error } = await supabase.from('agencies').insert([
-        {
-          name,
-          owner_uid: user.id,
-          status: 'active'
-        },
-      ]);
-
-      if (error) {
-        throw error;
-      }
-
+      await onCreateCompany(newCompanyName, selectedOwnerEmail);
       setNewCompanyName('');
       setSelectedOwnerEmail('');
       setCnpj('');
       setDescription('');
       onOpenChange(false);
     } catch (err: any) {
-      alert(`Erro ao criar empresa: ${err.message}`);
+      console.error('Erro ao criar empresa:', err);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -129,7 +107,7 @@ const CreateCompanyDialog: React.FC<CreateCompanyDialogProps> = ({
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancelar
             </Button>
-            <Button onClick={() => onCreateCompany(newCompanyName, selectedOwnerEmail, cnpj, description)} disabled={loading}>
+            <Button onClick={handleCreateCompany} disabled={loading || !newCompanyName || !selectedOwnerEmail}>
               {loading ? 'Criando...' : 'Criar'}
             </Button>
           </div>

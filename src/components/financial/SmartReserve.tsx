@@ -10,11 +10,10 @@ import AddReserveGoalModal from './AddReserveGoalModal';
 
 interface ReserveGoal {
   id: string;
-  name: string;
-  target_amount: number;
-  current_amount: number;
-  icon: string;
-  created_at: string;
+  description: string;
+  amount: number;
+  supplier: string;
+  date: string;
 }
 
 const SmartReserve: React.FC = () => {
@@ -28,10 +27,13 @@ const SmartReserve: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase.rpc('exec_sql', {
-        query: 'SELECT * FROM reserve_goals WHERE user_id = $1 ORDER BY created_at DESC',
-        params: [user.id]
-      });
+      // Use direct table query instead of exec_sql - filter by reserve_goal type
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'reserve_goal')
+        .order('date', { ascending: false });
 
       if (error) throw error;
       setGoals(data || []);
@@ -108,36 +110,36 @@ const SmartReserve: React.FC = () => {
             <Card key={goal.id} className="relative overflow-hidden">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <span className="text-2xl">{goal.icon}</span>
-                  {goal.name}
+                  <span className="text-2xl">{goal.supplier || '🎯'}</span>
+                  {goal.description}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Progresso</span>
-                    <span>{getProgressPercentage(goal.current_amount, goal.target_amount).toFixed(1)}%</span>
+                    <span>{getProgressPercentage(0, goal.amount).toFixed(1)}%</span>
                   </div>
-                  <Progress value={getProgressPercentage(goal.current_amount, goal.target_amount)} />
+                  <Progress value={getProgressPercentage(0, goal.amount)} />
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Valor Atual</span>
                     <span className="font-semibold text-green-600">
-                      {formatCurrency(goal.current_amount)}
+                      {formatCurrency(0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Meta</span>
                     <span className="font-semibold">
-                      {formatCurrency(goal.target_amount)}
+                      {formatCurrency(goal.amount)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Restante</span>
                     <span className="font-semibold text-orange-600">
-                      {formatCurrency(Math.max(0, goal.target_amount - goal.current_amount))}
+                      {formatCurrency(goal.amount)}
                     </span>
                   </div>
                 </div>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -74,24 +73,21 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({ isOpen, onClose, onSu
 
     setLoading(true);
     try {
-      // Create a raw SQL query to insert into financial_transactions
-      const { error } = await supabase.rpc('exec_sql', {
-        query: `
-          INSERT INTO financial_transactions (user_id, type, description, amount, category, payment_method, supplier, date, time, is_paid)
-          VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8, $9)
-        `,
-        params: [
-          user.id,
-          formData.description,
-          parseFloat(formData.amount) || 0,
-          formData.category,
-          formData.payment_method,
-          formData.supplier || null,
-          formData.date,
-          formData.time || null,
-          formData.is_paid
-        ]
-      });
+      // Use direct table insert instead of exec_sql
+      const { error } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          type: 'expense',
+          description: formData.description,
+          amount: parseFloat(formData.amount) || 0,
+          category: formData.category,
+          payment_method: formData.payment_method,
+          supplier: formData.supplier || null,
+          date: formData.date,
+          time: formData.time || null,
+          is_paid: formData.is_paid
+        });
 
       if (error) throw error;
 

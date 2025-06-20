@@ -49,10 +49,13 @@ const FinancialOverview: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase.rpc('exec_sql', {
-        query: 'SELECT * FROM financial_transactions WHERE user_id = $1 ORDER BY date DESC LIMIT 50',
-        params: [user.id]
-      });
+      // Use direct table query instead of exec_sql
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
 
