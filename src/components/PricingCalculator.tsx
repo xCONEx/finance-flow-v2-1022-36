@@ -178,7 +178,7 @@ const PricingCalculator = () => {
         .from('jobs')
         .insert({
           description: jobData.description,
-          client_name: jobData.client,
+          client: jobData.client,
           event_date: jobData.eventDate,
           estimated_hours: jobData.estimatedHours,
           difficulty_level: jobData.difficultyLevel,
@@ -191,6 +191,7 @@ const PricingCalculator = () => {
           service_value: jobData.serviceValue,
           value_with_discount: jobData.valueWithDiscount,
           profit_margin: jobData.profitMargin,
+          is_approved: jobData.is_approved,
           user_id: user.id,
           agency_id: agency?.id || null,
         });
