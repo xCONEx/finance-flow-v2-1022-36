@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -178,7 +177,8 @@ const PricingCalculator = () => {
       const { error } = await supabase
         .from('jobs')
         .insert({
-          client: jobData.client,
+          description: jobData.description,
+          client_name: jobData.client,
           event_date: jobData.eventDate,
           estimated_hours: jobData.estimatedHours,
           difficulty_level: jobData.difficultyLevel,
@@ -191,7 +191,6 @@ const PricingCalculator = () => {
           service_value: jobData.serviceValue,
           value_with_discount: jobData.valueWithDiscount,
           profit_margin: jobData.profitMargin,
-          is_approved: jobData.is_approved,
           user_id: user.id,
           agency_id: agency?.id || null,
         });
