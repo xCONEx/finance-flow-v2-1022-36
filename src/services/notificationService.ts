@@ -11,7 +11,7 @@ export interface NotificationPayload {
     amount?: number;
     dueDate?: string;
     category?: string;
-    type?: 'expense' | 'income';
+    type?: 'expense' | 'income' | 'test';
   };
 }
 
