@@ -15,6 +15,15 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSupabaseAuth } from '../contexts/SupabaseAuthContext';
 import { formatCurrency } from '../utils/formatters';
 import ManualValueModal from './ManualValueModal';
+import { ClientSelector } from './clients/ClientSelector';
+
+interface Client {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  cnpj?: string;
+}
 
 const PricingCalculator = () => {
   const { addJob, workRoutine, refreshJobs } = useApp();
@@ -22,10 +31,10 @@ const PricingCalculator = () => {
   const { user } = useSupabaseAuth();
   const [showManualValue, setShowManualValue] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   
   const [formData, setFormData] = useState({
     description: '',
-    client: '',
     eventDate: '',
     estimatedHours: 0,
     difficultyLevel: 'médio' as 'fácil' | 'médio' | 'complicado' | 'difícil',
@@ -125,10 +134,10 @@ const PricingCalculator = () => {
   };
 
   const saveJob = async () => {
-    if (!formData.description || !formData.client || calculatedPrice.totalCosts === 0) {
+    if (!formData.description || !selectedClient || calculatedPrice.totalCosts === 0) {
       toast({
         title: "Erro",
-        description: "Preencha os campos obrigatórios e calcule o preço primeiro.",
+        description: "Preencha os campos obrigatórios (descrição, cliente) e calcule o preço primeiro.",
         variant: "destructive"
       });
       return;
@@ -147,7 +156,8 @@ const PricingCalculator = () => {
 
     const newJob = {
       description: formData.description,
-      client: formData.client,
+      client: selectedClient.name,
+      client_id: selectedClient.id,
       eventDate: formData.eventDate || new Date().toISOString().split('T')[0],
       estimatedHours: formData.estimatedHours,
       difficultyLevel: formData.difficultyLevel,
@@ -178,13 +188,12 @@ const PricingCalculator = () => {
 
       toast({
         title: "Job Salvo com Sucesso!",
-        description: `Orçamento de "${formData.description}" foi salvo e aparecerá na lista de jobs.`,
+        description: `Orçamento de "${formData.description}" foi salvo e vinculado ao cliente ${selectedClient.name}.`,
       });
 
       // Reset form após salvar com sucesso
       setFormData({
         description: '',
-        client: '',
         eventDate: '',
         estimatedHours: 0,
         difficultyLevel: 'médio',
@@ -194,6 +203,8 @@ const PricingCalculator = () => {
         category: '',
         discountPercentage: 0
       });
+      
+      setSelectedClient(null);
       
       setCalculatedPrice({
         totalCosts: 0,
@@ -256,17 +267,12 @@ const PricingCalculator = () => {
               />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="client">Cliente *</Label>
-                <Input
-                  id="client"
-                  placeholder="Nome do cliente"
-                  value={formData.client}
-                  onChange={(e) => setFormData({...formData, client: e.target.value})}
-                />
-              </div>
+            <ClientSelector 
+              selectedClient={selectedClient}
+              onClientSelect={setSelectedClient}
+            />
 
+            <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="eventDate">Data do Evento</Label>
                 <Input
@@ -318,13 +324,15 @@ const PricingCalculator = () => {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="discountPercentage">Desconto (%)</Label>
-                <PercentageInput
-                  id="discountPercentage"
-                  value={formData.discountPercentage}
-                  onChange={(value) => setFormData({...formData, discountPercentage: value})}
-                />
+              <div className="md:col-span-2">
+                <div className="space-y-2">
+                  <Label htmlFor="discountPercentage">Desconto (%)</Label>
+                  <PercentageInput
+                    id="discountPercentage"
+                    value={formData.discountPercentage}
+                    onChange={(value) => setFormData({...formData, discountPercentage: value})}
+                  />
+                </div>
               </div>
             </div>
 
