@@ -21,7 +21,7 @@ const PricingCalculator = () => {
     client: '',
     eventDate: new Date().toISOString().split('T')[0],
     estimatedHours: 1,
-    difficultyLevel: 'médio',
+    difficultyLevel: 'médio' as 'fácil' | 'médio' | 'complicado' | 'difícil',
     logistics: 0,
     equipment: 0,
     assistance: 0,
@@ -45,7 +45,7 @@ const PricingCalculator = () => {
   const { user, profile, agency } = useSupabaseAuth();
   const { toast } = useToast();
 
-  const difficultyLevels = ['fácil', 'médio', 'complicado', 'difícil'];
+  const difficultyLevels: ('fácil' | 'médio' | 'complicado' | 'difícil')[] = ['fácil', 'médio', 'complicado', 'difícil'];
   const jobCategories = [
     'Ensaio Fotográfico',
     'Casamento',
@@ -68,10 +68,9 @@ const PricingCalculator = () => {
     if (!user) return;
 
     try {
-      // Use uma query personalizada via RPC se a tabela clients não estiver disponível
+      // Use dados mock enquanto a tabela clients não está disponível
       let clientsData: Client[] = [];
       
-      // Tentar buscar clientes com tratamento de erro
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -82,7 +81,6 @@ const PricingCalculator = () => {
           console.log('Tabela clients não encontrada, usando dados mock');
           clientsData = [];
         } else {
-          // Converter dados do profile para formato de cliente se necessário
           clientsData = [];
         }
       } catch (dbError) {
@@ -180,7 +178,6 @@ const PricingCalculator = () => {
       const { error } = await supabase
         .from('jobs')
         .insert({
-          description: jobData.description,
           client: jobData.client,
           event_date: jobData.eventDate,
           estimated_hours: jobData.estimatedHours,
@@ -360,7 +357,7 @@ const PricingCalculator = () => {
               <Label htmlFor="difficultyLevel">Nível de Dificuldade *</Label>
               <Select
                 value={jobData.difficultyLevel}
-                onValueChange={(value) => setJobData({ ...jobData, difficultyLevel: value })}
+                onValueChange={(value: 'fácil' | 'médio' | 'complicado' | 'difícil') => setJobData({ ...jobData, difficultyLevel: value })}
                 required
               >
                 <SelectTrigger>
